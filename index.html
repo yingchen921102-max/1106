@@ -14,8 +14,10 @@
     @media(max-width:1000px){.shell{grid-template-columns:205px 1fr}.content-grid{grid-template-columns:1fr}.sidebar-panel{grid-template-columns:repeat(2,1fr)}.next-card{grid-column:1/-1}.summary{grid-template-columns:1.35fr 1fr 1fr}}
     @media(max-width:700px){.shell{display:block}.sidebar{position:fixed;bottom:0;left:0;right:0;z-index:5;height:64px;border:0;border-top:1px solid var(--line);padding:5px 10px;background:#fff;display:block}.brand,.nav-label,.side-bottom{display:none}.nav{height:100%;grid-template-columns:repeat(4,1fr);gap:0}.nav button{height:100%;padding:4px 0;justify-content:center;flex-direction:column;gap:1px;font-size:9px;border-radius:9px}.nav .ico{font-size:17px;width:auto}.nav .count{display:none}main{padding:21px 17px 90px}.topbar{margin-bottom:25px}.heading-row{align-items:flex-start;gap:8px}.heading-row h1{font-size:25px}.heading-row p{font-size:11px}.heading-row .primary{padding:10px 11px;font-size:10px;white-space:nowrap}.summary{grid-template-columns:1fr 1fr;gap:9px}.progress-card{grid-column:1/-1;padding:14px 17px}.mini-card{padding:12px 14px}.content-grid{gap:15px}.habit{padding:12px 11px;grid-template-columns:37px minmax(0,1fr);gap:10px}.habit-icon{height:37px;width:37px;font-size:18px}.habit-actions{grid-column:2;justify-content:flex-start;margin-top:-2px}.state-btn{height:27px;padding:0 9px}.habit-meta{flex-wrap:wrap;gap:5px}.sidebar-panel{grid-template-columns:1fr}.next-card{grid-column:auto}.date-chip{display:none}.crumb{font-size:11px}.review-stats{gap:5px}.review-stat{padding:9px}}
   </style>
+<style>.auth-gate{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 15% 15%,#edf3eb 0,transparent 36%),var(--bg)}.auth-card{width:min(420px,100%);padding:34px;border:1px solid var(--line);border-radius:24px;background:#fff;box-shadow:0 24px 80px #26332612;text-align:center}.auth-logo{width:52px;height:52px;margin:0 auto 16px;border-radius:17px;background:var(--green);display:grid;place-items:center;color:white;font-size:26px;font-weight:800}.auth-card h1{font-size:23px;margin:0 0 8px}.auth-card p{color:var(--muted);font-size:13px;margin:0 0 23px}.google-login{width:100%;min-height:46px;display:flex;justify-content:center;align-items:center;gap:11px;border:1px solid var(--line);border-radius:12px;background:white;font-weight:700}.google-login:hover{background:#fafbf8;border-color:#cbd5c9}.google-login:disabled{opacity:.6;cursor:wait}.google-g{font-family:Arial,sans-serif;font-weight:800;font-size:18px;color:#4285f4}.auth-error{min-height:20px;margin-top:13px!important;color:#a45d50!important;font-size:12px!important}body.auth-loading .shell,body.auth-loading .toast,body.auth-loading .overlay{visibility:hidden}body:not(.is-authenticated) .shell{visibility:hidden}body.is-authenticated .auth-gate{display:none}.user{width:100%}.user-info{min-width:0;flex:1;overflow-wrap:anywhere}.user #signOutButton{margin-left:auto;flex:none}</style>
 </head>
-<body>
+<body class="auth-loading">
+<div id="authGate" class="auth-gate" aria-labelledby="authTitle"><section class="auth-card"><div class="auth-logo" aria-hidden="true">日</div><h1 id="authTitle">歡迎來到日日</h1><p>登入後，繼續累積你的每一個小小習慣。</p><button id="googleLogin" class="google-login" type="button" disabled><span class="google-g" aria-hidden="true">G</span><span>使用 Google 帳戶登入</span></button><p id="authError" class="auth-error" role="alert" aria-live="polite"></p></section></div>
 <div class="shell">
   <aside class="sidebar">
     <div class="brand"><div class="brand-mark">日</div><div>日日<small>MAKE IT A LITTLE EVERY DAY</small></div></div>
@@ -26,7 +28,7 @@
       <button data-view="review"><span class="ico">↗</span>習慣回顧</button>
       <button data-view="settings"><span class="ico">⚙</span>偏好設定</button>
     </nav>
-    <div class="side-bottom"><div class="streak-box"><span class="fire">✦</span><strong>每一步都算數</strong><p>穩定比完美更重要。</p></div><div class="user"><div class="avatar">安</div><div><strong>安的日常</strong><small>我的習慣空間</small></div></div></div>
+    <div class="side-bottom"><div class="streak-box"><span class="fire">✦</span><strong>每一步都算數</strong><p>穩定比完美更重要。</p></div><div class="user"><div class="avatar">安</div><div class="user-info"><strong>安的日常</strong><small>我的習慣空間</small></div><button class="state-btn" id="signOutButton" type="button" title="登出 Google 帳戶">登出</button></div></div>
   </aside>
   <main>
     <div class="topbar"><div class="crumb">工作空間 <span style="padding:0 7px;color:#c4c6c0">/</span> <b id="crumbName" style="color:#5c6259;font-weight:600">今日習慣</b></div><div class="top-actions"><span class="date-chip" id="topDate"></span><button class="icon-btn" id="notifyBtn" title="開啟瀏覽器提醒" aria-label="開啟瀏覽器提醒">♧<i class="notif-dot"></i></button><button class="icon-btn" id="helpBtn" title="使用提示" aria-label="使用提示">?</button></div></div>
@@ -52,7 +54,21 @@
 <div class="overlay" id="goalModal"><div class="modal wide-modal" role="dialog" aria-modal="true" aria-labelledby="goalModalTitle"><div class="modal-head"><h2 id="goalModalTitle">目標進度</h2><button class="close" data-close="goalModal" aria-label="關閉">×</button></div><div id="goalDetails"></div><div class="form-footer"><button class="secondary" data-close="goalModal">關閉</button></div></div></div>
 <div class="overlay" id="reviewModal"><div class="modal review-modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle"><div class="modal-head"><h2 id="reviewTitle">今天，做得很好。</h2><button class="close" data-close="reviewModal" aria-label="關閉">×</button></div><p>給今天的自己一點肯定。不論完成多少，願意回來看看就是很棒的一步。</p><div class="review-stats" id="reviewStats"></div><div class="review-list" id="reviewList"></div><div class="form-footer"><button class="primary" data-close="reviewModal">完成回顧</button></div></div></div>
 <style>.days{display:flex;gap:6px}.day-chip{border:1px solid var(--line);background:white;border-radius:9px;padding:7px 9px;color:#858a80;font-size:10px}.day-chip.selected{background:var(--mint);border-color:#d7e4d5;color:var(--green-dark);font-weight:700}</style>
-<script>
+<script src="./firebase-config.js"></script>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
+  // Firebase Web App 設定由 firebase-config.js 提供，勿在此貼私鑰。
+  const firebaseConfig = window.FIREBASE_CONFIG || { apiKey: "YOUR_FIREBASE_API_KEY", authDomain: "YOUR_FIREBASE_PROJECT_ID.firebaseapp.com", projectId: "YOUR_FIREBASE_PROJECT_ID", appId: "YOUR_FIREBASE_APP_ID" };
+const body=document.body,loginButton=document.getElementById('googleLogin'),authError=document.getElementById('authError'),loginLabel=loginButton.querySelector('span:last-child');let auth=null,appStarted=false;const provider=new GoogleAuthProvider();
+function showAuthError(message){authError.textContent=message||''}
+function translateAuthError(error){const code=error?.code||'';if(code.includes('unauthorized-domain'))return '此網站網域尚未加入 Firebase 授權網域，請在 Firebase Authentication 設定新增 GitHub Pages 網域。';if(code.includes('operation-not-allowed'))return 'Firebase 尚未啟用 Google 登入，請到 Authentication 的登入方式啟用 Google。';if(code.includes('invalid-api-key')||code.includes('invalid-credential'))return 'Firebase 設定尚未完成或不正確，請確認專案設定。';if(code.includes('popup-closed-by-user'))return '登入視窗已關閉，若要登入請再試一次。';if(code.includes('network-request-failed'))return '網路連線失敗，請檢查網路後重試。';return '登入失敗，請稍後再試，並確認 Firebase Authentication 設定。'}
+const configured=firebaseConfig.apiKey&&!firebaseConfig.apiKey.startsWith('YOUR_')&&firebaseConfig.projectId&&!firebaseConfig.projectId.startsWith('YOUR_')&&firebaseConfig.appId&&!firebaseConfig.appId.startsWith('YOUR_');
+if(!configured){showAuthError('尚待 Firebase 專案設定：請建立 Firebase Web App，填入 index.html 的 firebaseConfig，並啟用 Google 登入。')}else try{const app=initializeApp(firebaseConfig);auth=getAuth(app);loginButton.disabled=false;onAuthStateChanged(auth,user=>{if(!user){body.classList.remove('is-authenticated');body.classList.add('auth-loading');appStarted=false;return}body.classList.add('is-authenticated');body.classList.remove('auth-loading');const name=user.displayName||user.email||'我的帳戶';document.querySelector('.user strong').textContent=name;document.querySelector('.user small').textContent=user.email||'Google 帳戶';const avatar=document.querySelector('.avatar');if(user.photoURL){avatar.textContent='';avatar.style.background='center / cover no-repeat url("'+user.photoURL.replace(/["\\]/g,'')+'")'}else avatar.textContent=[...name][0]||'我';if(!appStarted){appStarted=true;const appScript=document.createElement('script');appScript.textContent=document.getElementById('habitAppSource').textContent;document.body.appendChild(appScript)}});getRedirectResult(auth).catch(error=>showAuthError(translateAuthError(error)))}catch(error){showAuthError('Firebase 初始化失敗，請檢查 firebaseConfig。')}
+loginButton.addEventListener('click',async()=>{if(!auth)return;loginButton.disabled=true;loginLabel.textContent='正在連線 Google…';showAuthError('');try{await signInWithPopup(auth,provider)}catch(error){if(error.code==='auth/popup-blocked'||error.code==='auth/operation-not-supported-in-this-environment'){try{await signInWithRedirect(auth,provider);return}catch(e){error=e}}showAuthError(translateAuthError(error));loginButton.disabled=false;loginLabel.textContent='使用 Google 帳戶登入'}});
+document.addEventListener('click',async event=>{if(event.target.closest('#signOutButton')&&auth){try{await signOut(auth);location.reload()}catch(error){showAuthError(translateAuthError(error))}}});
+</script>
+<script type="text/plain" id="habitAppSource">
 (()=>{
   const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
   const today=new Date(), todayKey=key(today), dow=['日','一','二','三','四','五','六'];
@@ -63,9 +79,10 @@
     {id:'walk',name:'午間散步',icon:'🌿',time:'12:30',duration:30,days:[1,3,5],tone:'blue',states:{},notesEnabled:false,goal:null},
     {id:'jp',name:'日文學習',icon:'🇯🇵',time:'20:00',duration:60,days:[1,2,3,4,5,6,0],tone:'blue',states:{},notesEnabled:true,goal:{name:'年底通過日文 N3',date:`${today.getFullYear()}-12-31`,targetHours:200,trackHours:true,trackMilestones:true,note:'每天穩定學習，年底挑戰 N3',milestones:[{text:'熟記 N3 常用單字',done:false},{text:'完成 N3 文法教材',done:false},{text:'完成 3 回模擬考',done:false}],logs:{}}}
   ];
-  let habits;try{habits=JSON.parse(localStorage.getItem('riri-habits-v1'))||seed}catch{habits=seed}
+  const storageKey='riri-habits-v1:'+((document.querySelector('.user small')?.textContent||'guest').toLowerCase());
+  let habits;try{habits=JSON.parse(localStorage.getItem(storageKey))||JSON.parse(localStorage.getItem('riri-habits-v1'))||seed}catch{habits=seed}
   habits=habits.map(h=>({...h,states:h.states||{},notes:h.notes||{},notesEnabled:!!h.notesEnabled}));
-  const save=()=>localStorage.setItem('riri-habits-v1',JSON.stringify(habits));
+  const save=()=>localStorage.setItem(storageKey,JSON.stringify(habits));
   const dateFmt=new Intl.DateTimeFormat('zh-TW',{month:'long',day:'numeric',weekday:'long'});
   let selectedDate=new Date(today), editingId=null, noteHabitId=null, noteDateKey=null, selectedMood='😊';
   $('#topDate').textContent=new Intl.DateTimeFormat('zh-TW',{year:'numeric',month:'long',day:'numeric'}).format(today);
@@ -98,7 +115,6 @@
   $$('.close,[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close||b.closest('.overlay').id)));$$('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModal(o.id)}));document.addEventListener('keydown',e=>{if(e.key==='Escape')$$('.overlay.open').forEach(x=>closeModal(x.id))});
   $('#notifyBtn').onclick=async()=>{if(!('Notification'in window)){toast('目前瀏覽器不支援通知功能');return}let p=Notification.permission;if(p==='default')p=await Notification.requestPermission();if(p==='granted'){new Notification('日日｜提醒已開啟',{body:'習慣時間到了，我們會在這個瀏覽器提醒你。'});toast('瀏覽器通知已開啟')}else toast('尚未允許通知，可在瀏覽器設定中開啟')};$('#helpBtn').onclick=()=>toast('編輯可調整習慣與目標；完成、跳過可補記狀態；目標支援時數與里程碑，評語可稍後補記。');render();
 })();
-
 </script>
 </body>
 </html>
@@ -107,13 +123,3 @@
 .days{display:flex;gap:6px;flex-wrap:wrap}.day-chip{border:1px solid var(--line);background:white;border-radius:9px;padding:7px 9px;color:#858a80;font-size:10px}.day-chip.selected{background:var(--mint);border-color:#d7e4d5;color:var(--green-dark);font-weight:700}
 .wide-modal{width:min(600px,100%);max-height:90vh;overflow:auto}.goal-box{border:1px solid #e7ece3;background:#fafbf8;border-radius:13px;padding:13px}.goal-fields{padding-top:12px}.goal-fields[hidden]{display:none}.goal-box>label,.toggle-label{font-size:11px;font-weight:600;color:#51574e}.toggle-label{display:flex;align-items:center;gap:7px}.toggle-label input,.mode-row input{accent-color:var(--green)}.mode-row{display:flex;gap:20px;font-size:10px;color:#71776e}.mode-row label{display:flex;align-items:center;gap:5px}.field textarea{width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);outline:none;font:inherit;font-size:12px;resize:vertical}.field textarea:focus{border-color:#91aa89;box-shadow:0 0 0 3px #52745d12}.field small,.form-hint{display:block;color:#999e94;font-size:9px;margin-top:5px}.goal-card{margin-top:12px;background:#fafbf8;border:1px solid #edf0e9;border-radius:11px;padding:10px 11px}.goal-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px}.goal-card-name{font-size:10px;font-weight:700}.goal-card-percent{font-size:11px;color:var(--green-dark);font-weight:700}.bar{height:5px;background:#e8ece5;border-radius:99px;overflow:hidden;margin:8px 0 5px}.bar i{display:block;height:100%;background:#77977b;border-radius:99px}.goal-sub{font-size:9px;color:#969b91}.habit-extra{grid-column:2/-1;font-size:10px;color:#777e73;margin-top:-5px}.habit-tools{display:flex;gap:6px;flex-wrap:wrap}.note-line{display:flex;gap:5px;align-items:center;margin-top:3px;color:#778173;font-size:10px}.mood-row{display:flex;gap:8px;flex-wrap:wrap}.mood-btn{border:1px solid var(--line);background:white;border-radius:10px;padding:7px 9px;font-size:18px}.mood-btn.selected{background:var(--mint);border-color:#a9c0a7;box-shadow:0 0 0 2px #52745d12}.milestone-list{display:grid;gap:7px;margin:10px 0}.milestone-item{display:flex;align-items:center;gap:8px;padding:9px;border:1px solid var(--line);border-radius:9px;font-size:11px}.milestone-item input{accent-color:var(--green)}.goal-actions{display:flex;gap:7px;margin-top:12px}.habit-tools{display:flex;gap:6px;flex-wrap:wrap}.tool-btn{height:29px;border:1px solid var(--line);background:white;border-radius:8px;padding:0 8px;font-size:10px;color:#73796f}.note-edit{border:0;background:none;color:var(--green-dark);font-size:10px;text-decoration:underline;padding:0}.goal-history{display:grid;gap:8px;margin-top:12px}.goal-log{display:flex;justify-content:space-between;font-size:10px;padding:7px 0;border-top:1px solid var(--line)}
 </style>
-
-
-
-
-
-
-
-
-
-
