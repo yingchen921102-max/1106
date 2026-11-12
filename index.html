@@ -14,10 +14,10 @@
     @media(max-width:1000px){.shell{grid-template-columns:205px 1fr}.content-grid{grid-template-columns:1fr}.sidebar-panel{grid-template-columns:repeat(2,1fr)}.next-card{grid-column:1/-1}.summary{grid-template-columns:1.35fr 1fr 1fr}}
     @media(max-width:700px){.shell{display:block}.sidebar{position:fixed;bottom:0;left:0;right:0;z-index:5;height:64px;border:0;border-top:1px solid var(--line);padding:5px 10px;background:#fff;display:block}.brand,.nav-label,.side-bottom{display:none}.nav{height:100%;grid-template-columns:repeat(4,1fr);gap:0}.nav button{height:100%;padding:4px 0;justify-content:center;flex-direction:column;gap:1px;font-size:9px;border-radius:9px}.nav .ico{font-size:17px;width:auto}.nav .count{display:none}main{padding:21px 17px 90px}.topbar{margin-bottom:25px}.heading-row{align-items:flex-start;gap:8px}.heading-row h1{font-size:25px}.heading-row p{font-size:11px}.heading-row .primary{padding:10px 11px;font-size:10px;white-space:nowrap}.summary{grid-template-columns:1fr 1fr;gap:9px}.progress-card{grid-column:1/-1;padding:14px 17px}.mini-card{padding:12px 14px}.content-grid{gap:15px}.habit{padding:12px 11px;grid-template-columns:37px minmax(0,1fr);gap:10px}.habit-icon{height:37px;width:37px;font-size:18px}.habit-actions{grid-column:2;justify-content:flex-start;margin-top:-2px}.state-btn{height:27px;padding:0 9px}.habit-meta{flex-wrap:wrap;gap:5px}.sidebar-panel{grid-template-columns:1fr}.next-card{grid-column:auto}.date-chip{display:none}.crumb{font-size:11px}.review-stats{gap:5px}.review-stat{padding:9px}}
   </style>
-<style>.auth-gate{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 15% 15%,#edf3eb 0,transparent 36%),var(--bg)}.auth-card{width:min(420px,100%);padding:34px;border:1px solid var(--line);border-radius:24px;background:#fff;box-shadow:0 24px 80px #26332612;text-align:center}.auth-logo{width:52px;height:52px;margin:0 auto 16px;border-radius:17px;background:var(--green);display:grid;place-items:center;color:white;font-size:26px;font-weight:800}.auth-card h1{font-size:23px;margin:0 0 8px}.auth-card p{color:var(--muted);font-size:13px;margin:0 0 23px}.google-login{width:100%;min-height:46px;display:flex;justify-content:center;align-items:center;gap:11px;border:1px solid var(--line);border-radius:12px;background:white;font-weight:700}.google-login:hover{background:#fafbf8;border-color:#cbd5c9}.google-login:disabled{opacity:.6;cursor:wait}.google-g{font-family:Arial,sans-serif;font-weight:800;font-size:18px;color:#4285f4}.auth-error{min-height:20px;margin-top:13px!important;color:#a45d50!important;font-size:12px!important}body.auth-loading .shell,body.auth-loading .toast,body.auth-loading .overlay{visibility:hidden}body:not(.is-authenticated) .shell{visibility:hidden}body.is-authenticated .auth-gate{display:none}.user{width:100%}.user-info{min-width:0;flex:1;overflow-wrap:anywhere}.user #signOutButton{margin-left:auto;flex:none}</style>
+<style>.auth-gate{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:radial-gradient(circle at 15% 15%,#edf3eb 0,transparent 36%),var(--bg)}.auth-card{width:min(420px,100%);padding:34px;border:1px solid var(--line);border-radius:24px;background:#fff;box-shadow:0 24px 80px #26332612;text-align:center}.auth-logo{width:52px;height:52px;margin:0 auto 16px;border-radius:17px;background:var(--green);display:grid;place-items:center;color:white;font-size:26px;font-weight:800}.auth-card h1{font-size:23px;margin:0 0 8px}.auth-card p{color:var(--muted);font-size:13px;margin:0 0 23px}.google-login{width:100%;min-height:46px;display:flex;justify-content:center;align-items:center;gap:11px;border:1px solid var(--line);border-radius:12px;background:white;font-weight:700}.google-login:hover{background:#fafbf8;border-color:#cbd5c9}.google-login:disabled{opacity:.6;cursor:wait}.google-g{font-family:Arial,sans-serif;font-weight:800;font-size:18px;color:#4285f4}.line-login{margin-top:10px;background:#06c755;color:#fff;border-color:#06c755}.line-login:hover{background:#05b54d}.line-g{font-weight:800;font-size:13px;letter-spacing:.02em}.auth-error{min-height:20px;margin-top:13px!important;color:#a45d50!important;font-size:12px!important}body.auth-loading .shell,body.auth-loading .toast,body.auth-loading .overlay{visibility:hidden}body:not(.is-authenticated) .shell{visibility:hidden}body.is-authenticated .auth-gate{display:none}.user{width:100%}.user-info{min-width:0;flex:1;overflow-wrap:anywhere}.user #signOutButton{margin-left:auto;flex:none}</style>
 </head>
 <body class="auth-loading">
-<div id="authGate" class="auth-gate" aria-labelledby="authTitle"><section class="auth-card"><div class="auth-logo" aria-hidden="true">日</div><h1 id="authTitle">歡迎來到日日</h1><p>登入後，繼續累積你的每一個小小習慣。</p><button id="googleLogin" class="google-login" type="button" disabled><span class="google-g" aria-hidden="true">G</span><span>使用 Google 帳戶登入</span></button><p id="authError" class="auth-error" role="alert" aria-live="polite"></p></section></div>
+<div id="authGate" class="auth-gate" aria-labelledby="authTitle"><section class="auth-card"><div class="auth-logo" aria-hidden="true">日</div><h1 id="authTitle">歡迎來到日日</h1><p>登入後，繼續累積你的每一個小小習慣。</p><button id="googleLogin" class="google-login" type="button" disabled><span class="google-g" aria-hidden="true">G</span><span>使用 Google 帳戶登入</span></button><button id="lineLogin" class="google-login line-login" type="button"><span class="line-g" aria-hidden="true">LINE</span><span>使用 LINE 登入</span></button><p id="authError" class="auth-error" role="alert" aria-live="polite"></p></section></div>
 <div class="shell">
   <aside class="sidebar">
     <div class="brand"><div class="brand-mark">日</div><div>日日<small>MAKE IT A LITTLE EVERY DAY</small></div></div>
@@ -55,6 +55,7 @@
 <div class="overlay" id="reviewModal"><div class="modal review-modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle"><div class="modal-head"><h2 id="reviewTitle">今天，做得很好。</h2><button class="close" data-close="reviewModal" aria-label="關閉">×</button></div><p>給今天的自己一點肯定。不論完成多少，願意回來看看就是很棒的一步。</p><div class="review-stats" id="reviewStats"></div><div class="review-list" id="reviewList"></div><div class="form-footer"><button class="primary" data-close="reviewModal">完成回顧</button></div></div></div>
 <style>.days{display:flex;gap:6px}.day-chip{border:1px solid var(--line);background:white;border-radius:9px;padding:7px 9px;color:#858a80;font-size:10px}.day-chip.selected{background:var(--mint);border-color:#d7e4d5;color:var(--green-dark);font-weight:700}</style>
 <script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyA6a_a-FwMC7Yim-BRY4grElfmepsNYFTg","authDomain":"project-4997808708120673764.firebaseapp.com","projectId":"1072776614801","appId":"1:1072776614801:web:def1dce6986c3ae92d0030"};</script>
+<script>window.LINE_LIFF_ID = "YOUR_LINE_LIFF_ID";</script>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
@@ -62,6 +63,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
   const config = window.FIREBASE_CONFIG;
   const gate = document.getElementById('authGate');
   const loginButton = document.getElementById('googleLogin');
+  const lineLoginButton = document.getElementById('lineLogin');
   const authError = document.getElementById('authError');
   const loginLabel = loginButton?.querySelector('span:last-child');
   const showError = message => { if (authError) authError.textContent = message || ''; };
@@ -69,6 +71,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
     if (!user || window.__habitAppStarted) return;
     window.__habitAppStarted = true;
     window.HABIT_USER_KEY = user.email || user.uid || 'account';
+    window.HABIT_LOGIN_PROVIDER = user.provider || 'Google';
     document.body.classList.add('is-authenticated');
     document.body.classList.remove('auth-loading');
     const fullName = user.displayName || user.email || '我的帳戶';
@@ -76,7 +79,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
     const userEmail = document.querySelector('.user small');
     const avatar = document.querySelector('.avatar');
     if (userName) userName.textContent = fullName;
-    if (userEmail) userEmail.textContent = user.email || 'Google 帳戶';
+    if (userEmail) userEmail.textContent = `${user.provider || 'Google'} 登入`;
     if (avatar) {
       if (user.photoURL) { avatar.textContent = ''; avatar.style.background = `center / cover no-repeat url("${user.photoURL.replace(/["\\]/g, '')}")`; }
       else avatar.textContent = [...fullName][0] || '我';
@@ -92,6 +95,14 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
   try {
     const app = initializeApp(config);
     const auth = getAuth(app);
+    const savedLineProfile = sessionStorage.getItem('riri-line-profile');
+    if (savedLineProfile) {
+      try {
+        const lineUser = JSON.parse(savedLineProfile);
+        startHabitApp({ ...lineUser, provider: 'LINE' });
+        sessionStorage.removeItem('riri-line-profile');
+      } catch { sessionStorage.removeItem('riri-line-profile'); }
+    }
     const provider = new GoogleAuthProvider();
     onAuthStateChanged(auth, user => {
       if (!user) {
@@ -100,7 +111,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
         document.body.classList.add('auth-loading');
         return;
       }
-      startHabitApp(user);
+      startHabitApp({ ...user, provider: user.providerData?.[0]?.providerId === 'google.com' ? 'Google' : 'Firebase' });
     }, error => showError(error.message));
     loginButton.disabled = false;
     loginButton.addEventListener('click', async () => {
@@ -118,6 +129,42 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
         if (loginLabel) loginLabel.textContent = '使用 Google 帳戶登入';
       }
     });
+    lineLoginButton.addEventListener('click', async () => {
+      if (auth.currentUser) {
+        try { await signOut(auth); } catch (error) { showError(`登出失敗：${error.code || error.message}`); return; }
+      }
+      const liffId = window.LINE_LIFF_ID;
+      if (!liffId || liffId === 'YOUR_LINE_LIFF_ID') {
+        showError('尚未設定 LINE LIFF ID。請先在 LINE Developers 建立 LIFF App，完成後把 LIFF ID 填入網站設定。');
+        return;
+      }
+      lineLoginButton.disabled = true;
+      showError('正在開啟 LINE 登入…');
+      try {
+        await loadLiffSdk();
+        const liff = window.liff;
+        await liff.init({ liffId });
+        if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.origin + location.pathname + location.hash }); return; }
+        const profile = await liff.getProfile();
+        const lineUser = { uid: `line:${profile.userId}`, displayName: profile.displayName, photoURL: profile.pictureUrl };
+        sessionStorage.setItem('riri-line-profile', JSON.stringify(lineUser));
+        startHabitApp({ ...lineUser, provider: 'LINE' });
+        showError('');
+      } catch (error) {
+        showError(`LINE 登入失敗：${error.message || error}`);
+        lineLoginButton.disabled = false;
+      }
+    });
+    function loadLiffSdk() {
+      if (window.liff) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://static.line-scdn.net/liff/edge/2/sdk.js';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('無法載入 LINE SDK'));
+        document.head.appendChild(script);
+      });
+    }
     document.addEventListener('click', async event => {
       if (!event.target.closest('#signOutButton')) return;
       try { await signOut(auth); location.reload(); }
