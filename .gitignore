@@ -1,3 +1,4 @@
 
 # Local Firebase web config (do not publish)
 firebase-config.js
+firebase-auth.js
