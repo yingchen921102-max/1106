@@ -58,85 +58,76 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-const firebaseConfig = window.FIREBASE_CONFIG;
-const body = document.body;
-const loginButton = document.getElementById('googleLogin');
-const authError = document.getElementById('authError');
-const loginLabel = loginButton.querySelector('span:last-child');
-const provider = new GoogleAuthProvider();
-let auth = null;
-let appStarted = false;
-function showAuthError(message) { authError.textContent = message || ''; }
-function translateAuthError(error) {
-  const code = error?.code || '';
-  if (code.includes('unauthorized-domain')) return '此網站網域尚未加入 Firebase 授權網域，請加入 GitHub Pages 網域。';
-  if (code.includes('operation-not-allowed') || code.includes('configuration-not-found') || code.includes('invalid-oauth-client-id')) return 'Firebase 尚未完成 Google 登入設定，請在 Authentication 登入方式啟用 Google。';
-  if (code.includes('invalid-api-key') || code.includes('invalid-credential')) return 'Firebase 設定不正確，請確認 Web App 設定。';
-  if (code.includes('popup-closed-by-user')) return '登入視窗已關閉，若要登入請再試一次。';
-  if (code.includes('network-request-failed')) return '網路連線失敗，請檢查網路後重試。';
-  return '登入失敗，請稍後再試，並確認 Firebase Authentication 設定。';
-}
-function startHabitApp(user) {
-  if (appStarted) return;
-  appStarted = true;
-  window.HABIT_USER_KEY = user?.email || user?.uid || 'account';
-  const appScript = document.createElement('script');
-  appScript.textContent = document.getElementById('habitAppSource').textContent;
-  document.body.appendChild(appScript);
-}
-if (!firebaseConfig?.apiKey || !firebaseConfig?.authDomain || !firebaseConfig?.projectId || !firebaseConfig?.appId) {
-  showAuthError('Firebase 設定未載入，請確認 Web App 設定。');
-} else {
+(function initializeFirebaseSignIn(){
+  const config = window.FIREBASE_CONFIG;
+  const gate = document.getElementById('authGate');
+  const loginButton = document.getElementById('googleLogin');
+  const authError = document.getElementById('authError');
+  const loginLabel = loginButton?.querySelector('span:last-child');
+  const showError = message => { if (authError) authError.textContent = message || ''; };
+  const startHabitApp = user => {
+    if (!user || window.__habitAppStarted) return;
+    window.__habitAppStarted = true;
+    window.HABIT_USER_KEY = user.email || user.uid || 'account';
+    document.body.classList.add('is-authenticated');
+    document.body.classList.remove('auth-loading');
+    const fullName = user.displayName || user.email || '我的帳戶';
+    const userName = document.querySelector('.user strong');
+    const userEmail = document.querySelector('.user small');
+    const avatar = document.querySelector('.avatar');
+    if (userName) userName.textContent = fullName;
+    if (userEmail) userEmail.textContent = user.email || 'Google 帳戶';
+    if (avatar) {
+      if (user.photoURL) { avatar.textContent = ''; avatar.style.background = `center / cover no-repeat url("${user.photoURL.replace(/["\\]/g, '')}")`; }
+      else avatar.textContent = [...fullName][0] || '我';
+    }
+    const appScript = document.createElement('script');
+    appScript.textContent = document.getElementById('habitAppSource').textContent;
+    document.body.appendChild(appScript);
+  };
+  if (!config?.apiKey || !config?.authDomain || !config?.projectId || !config?.appId) {
+    showError('Firebase 設定未載入，請確認 Web App 設定。');
+    return;
+  }
   try {
-    const app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    loginButton.disabled = false;
+    const app = initializeApp(config);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
     onAuthStateChanged(auth, user => {
       if (!user) {
-        body.classList.remove('is-authenticated');
-        body.classList.add('auth-loading');
-        appStarted = false;
+        window.__habitAppStarted = false;
+        document.body.classList.remove('is-authenticated');
+        document.body.classList.add('auth-loading');
         return;
       }
-      body.classList.add('is-authenticated');
-      body.classList.remove('auth-loading');
-      const name = user.displayName || user.email || '我的帳戶';
-      document.querySelector('.user strong').textContent = name;
-      document.querySelector('.user small').textContent = user.email || 'Google 帳戶';
-      const avatar = document.querySelector('.avatar');
-      if (user.photoURL) {
-        avatar.textContent = '';
-        avatar.style.background = `center / cover no-repeat url("${user.photoURL.replace(/["\\]/g, '')}")`;
-      } else avatar.textContent = [...name][0] || '我';
       startHabitApp(user);
-    });
-    getRedirectResult(auth).then(result => { if (result?.user) startHabitApp(result.user); }).catch(error => showAuthError(translateAuthError(error)));
-  } catch (error) {
-    showAuthError('Firebase 初始化失敗，請確認 Firebase Web App 設定。');
-  }
-}
-loginButton.addEventListener('click', async () => {
-  if (!auth) return;
-  loginButton.disabled = true;
-  loginLabel.textContent = '正在連線 Google…';
-  showAuthError('');
-  try {
-    await signInWithPopup(auth, provider);
-  } catch (error) {
-    if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
-      try { await signInWithRedirect(auth, provider); return; }
-      catch (redirectError) { error = redirectError; }
-    }
-    showAuthError(translateAuthError(error));
+    }, error => showError(error.message));
     loginButton.disabled = false;
-    loginLabel.textContent = '使用 Google 帳戶登入';
+    loginButton.addEventListener('click', async () => {
+      loginButton.disabled = true;
+      if (loginLabel) loginLabel.textContent = '正在連線 Google…';
+      showError('');
+      try { await signInWithPopup(auth, provider); }
+      catch (error) {
+        if (error.code === 'auth/popup-blocked' || error.code === 'auth/operation-not-supported-in-this-environment') {
+          try { await signInWithRedirect(auth, provider); return; }
+          catch (redirectError) { error = redirectError; }
+        }
+        showError(error.code === 'auth/unauthorized-domain' ? '此網站網域尚未加入 Firebase 授權網域。' : error.code === 'auth/operation-not-allowed' ? '請在 Firebase Authentication 啟用 Google 登入。' : `登入失敗：${error.code || error.message}`);
+        loginButton.disabled = false;
+        if (loginLabel) loginLabel.textContent = '使用 Google 帳戶登入';
+      }
+    });
+    document.addEventListener('click', async event => {
+      if (!event.target.closest('#signOutButton')) return;
+      try { await signOut(auth); location.reload(); }
+      catch (error) { showError(`登出失敗：${error.code || error.message}`); }
+    });
+    getRedirectResult(auth).then(result => { if (result?.user) startHabitApp(result.user); }).catch(error => showError(`登入失敗：${error.code || error.message}`));
+  } catch (error) {
+    showError(`Firebase 初始化失敗：${error.message}`);
   }
-});
-document.addEventListener('click', async event => {
-  if (!event.target.closest('#signOutButton') || !auth) return;
-  try { await signOut(auth); location.reload(); }
-  catch (error) { showAuthError(translateAuthError(error)); }
-});
+})();
 </script>
 <script type="text/plain" id="habitAppSource">
 (()=>{
