@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Provider {
+  GOOGLE
+  NOTION
+}
+
+enum SyncStatus {
+  PENDING
+  PROCESSING
+  RETRYING
+  SUCCEEDED
+  FAILED
+}
+
+enum CompletionStatus {
+  OPEN
+  DONE
+  SKIPPED
+}
+
+model User {
+  id           String        @id // Firebase Auth UID
+  timezone     String        @default("Asia/Taipei")
+  theme        String        @default("system")
+  displayName  String?
+  preferences  Json?
+  habits       Habit[]
+  integrations Integration[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Habit {
+  id           String               @id @default(cuid())
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  icon         String               @default("✨")
+  frequency    String               // e.g. WEEK, MONTH, CUSTOM
+  interval     Int                  @default(1)
+  targetAmount Decimal?             @db.Decimal(12, 2)
+  targetUnit   String?
+  targetHours  Decimal?             @db.Decimal(8, 2)
+  startDate    DateTime             @db.Date
+  endDate      DateTime?            @db.Date
+  timeZone     String               @default("Asia/Taipei")
+  active       Boolean              @default(true)
+  occurrences  ScheduleOccurrence[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([userId, active])
+}
+
+model ScheduleOccurrence {
+  id              String             @id @default(cuid())
+  habitId         String
+  habit           Habit              @relation(fields: [habitId], references: [id], onDelete: Cascade)
+  periodStart     DateTime           @db.Date
+  periodEnd       DateTime           @db.Date
+  scheduledAt     DateTime           @db.Timestamptz(3)
+  plannedMinutes  Int
+  actualMinutes   Int?
+  status          CompletionStatus   @default(OPEN)
+  completedAt     DateTime?
+  note            String?
+  googleEventId   String?
+  googleCalendarId String?
+  notionPageId    String?
+  syncKey         String             @unique
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([habitId, scheduledAt])
+  @@index([periodStart, periodEnd])
+}
+
+model Integration {
+  id                      String   @id @default(cuid())
+  userId                  String
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider                Provider
+  providerAccountId       String?
+  accessTokenCiphertext   Bytes?
+  accessTokenNonce        Bytes?
+  refreshTokenCiphertext  Bytes?
+  refreshTokenNonce       Bytes?
+  tokenKeyVersion         String?
+  accessTokenExpiresAt    DateTime?
+  grantedScopes           String[] @default([])
+  calendarId              String   @default("primary")
+  notionDatabaseId        String?
+  notionCompletionPropertyType String?
+  connectedAt             DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
+
+model OAuthState {
+  stateHash  String   @id
+  userId     String
+  provider   Provider
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model SyncOutbox {
+  id             String     @id @default(cuid())
+  userId         String
+  provider       Provider
+  action         String
+  payload        Json
+  idempotencyKey String     @unique
+  status         SyncStatus @default(PENDING)
+  attempts       Int        @default(0)
+  nextAttemptAt  DateTime   @default(now())
+  lastError      String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, provider, createdAt])
+}
