@@ -55,7 +55,7 @@
 <div class="overlay" id="goalModal"><div class="modal wide-modal" role="dialog" aria-modal="true" aria-labelledby="goalModalTitle"><div class="modal-head"><h2 id="goalModalTitle">目標進度</h2><button class="close" data-close="goalModal" aria-label="關閉">×</button></div><div id="goalDetails"></div><div class="form-footer"><button class="secondary" data-close="goalModal">關閉</button></div></div></div>
 <div class="overlay" id="reviewModal"><div class="modal review-modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle"><div class="modal-head"><h2 id="reviewTitle">今天，做得很好。</h2><button class="close" data-close="reviewModal" aria-label="關閉">×</button></div><p>給今天的自己一點肯定。不論完成多少，願意回來看看就是很棒的一步。</p><div class="review-stats" id="reviewStats"></div><div class="review-list" id="reviewList"></div><div class="form-footer"><button class="primary" data-close="reviewModal">完成回顧</button></div></div></div>
 <style>.days{display:flex;gap:6px}.day-chip{border:1px solid var(--line);background:white;border-radius:9px;padding:7px 9px;color:#858a80;font-size:10px}.day-chip.selected{background:var(--mint);border-color:#d7e4d5;color:var(--green-dark);font-weight:700}</style>
-<script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyA6a_a-FwMC7Yim-BRY4grElfmepsNYFTg","authDomain":"project-4997808708120673764.firebaseapp.com","projectId":"1072776614801","appId":"1:1072776614801:web:def1dce6986c3ae92d0030"};</script>
+<script>window.FIREBASE_CONFIG = {"apiKey":"AIzaSyA6a_a-FwMC7Yim-BRY4grElfmepsNYFTg","authDomain":"project-4997808708120673764.firebaseapp.com","projectId":"1072776614801","appId":"1:1072776614801:web:def1dce6986c3ae92d0030"}; window.FIREBASE_APP_CHECK_SITE_KEY = '';</script>
 <script>window.LINE_LIFF_ID = "2012588980-5afDJZx8";</script>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
@@ -95,6 +95,12 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
     enhancementScript.onload = () => window.RiriEnhancements?.initialize();
     enhancementScript.onerror = () => console.error('日日介面擴充程式載入失敗');
     document.body.appendChild(enhancementScript);
+    const geminiScript = document.createElement('script');
+    geminiScript.type = 'module';
+    geminiScript.src = './gemini-assistant.js';
+    geminiScript.onload = () => window.RiriGeminiAssistant?.initialize(app, window.FIREBASE_APP_CHECK_SITE_KEY, window.HABIT_USER_KEY);
+    geminiScript.onerror = () => window.RiriEnhancements?.setGeminiStatus('Gemini 模組載入失敗，請重新整理頁面。');
+    document.body.appendChild(geminiScript);
   };
   if (!config?.apiKey || !config?.authDomain || !config?.projectId || !config?.appId) {
     showError('Firebase 設定未載入，請確認 Web App 設定。');
@@ -102,6 +108,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
   }
   try {
     const app = initializeApp(config);
+    window.RIRI_FIREBASE_APP = app;
     const auth = getAuth(app);
     const savedLineProfile = sessionStorage.getItem('riri-line-profile');
     if (savedLineProfile) {

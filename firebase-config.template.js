@@ -5,3 +5,5 @@ window.FIREBASE_CONFIG = {
   projectId: 'YOUR_PROJECT_ID',
   appId: 'YOUR_APP_ID'
 };
+// Public reCAPTCHA Enterprise site key registered for this Web App in Firebase App Check.
+window.FIREBASE_APP_CHECK_SITE_KEY = 'YOUR_RECAPTCHA_ENTERPRISE_SITE_KEY';

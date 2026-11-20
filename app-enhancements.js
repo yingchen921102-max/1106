@@ -110,6 +110,117 @@
     if (!$('#habitDetailView')) {
       $('#alternateView')?.insertAdjacentHTML('afterend', `<section id="habitDetailView" class="detail-shell"><div class="heading-row"><div><div class="eyebrow">YOUR ROUTINE, YOUR PACE</div><h1 id="detailHeading" class="detail-title"></h1><p class="detail-subtitle">每期安排可以調整，已完成的紀錄會保留。</p></div><button class="secondary" id="detailBack" type="button">← 返回</button></div><div id="detailContent"></div></section>`);
     }
+    if (!$('#openGeminiAssistant')) {
+      $('.top-actions')?.insertAdjacentHTML('beforeend', `<button class="gemini-launch" id="openGeminiAssistant" type="button" aria-haspopup="dialog" aria-controls="geminiAssistantPanel">✦ AI 小幫手</button>`);
+    }
+    if (!$('#geminiAssistantPanel')) {
+      document.body.insertAdjacentHTML('beforeend', `<aside class="gemini-panel" id="geminiAssistantPanel" role="dialog" aria-label="習慣 AI 小幫手" hidden><header class="gemini-header"><span class="gemini-mark">✦</span><div class="gemini-heading"><strong>習慣 AI 小幫手</strong><small id="geminiStatus">正在載入 Gemini…</small></div><button class="gemini-icon-button" id="clearGeminiChat" type="button" title="清除本機對話">清除</button><button class="gemini-icon-button" id="closeGeminiAssistant" type="button" aria-label="關閉 AI 小幫手">×</button></header><div class="gemini-privacy">使用 Google Gemini 回答。每次提問與本對話前文會傳給 Gemini；勾選後才附上所選日期的習慣與待辦。若前文曾附摘要，也會一起傳送。對話存在此瀏覽器，可隨時清除。</div><div class="gemini-messages" id="geminiMessages" role="log" aria-live="polite" aria-relevant="additions text"></div><div class="gemini-quick-prompts"><button type="button" data-gemini-prompt="請根據我所選日期的習慣安排，幫我挑一個現在最容易開始的小步驟。" data-gemini-context="true">幫我開始今天</button><button type="button" data-gemini-prompt="請把我目前的目標拆成一個本週可完成的小步驟。" data-gemini-context="true">拆解一個小目標</button><button type="button" data-gemini-prompt="如果我最近進度落後，請給我一個溫和且實際的調整方式。" data-gemini-context="true">調整進度</button></div><label class="gemini-option"><input id="geminiShareContext" type="checkbox"><span>附上所選日期的習慣、待辦與完成狀態</span></label><label class="gemini-consent"><input id="geminiConsent" type="checkbox"><span>我了解提問與本對話前文會傳送給 Google Gemini</span></label><form class="gemini-form" id="geminiForm"><textarea id="geminiInput" rows="2" maxlength="1200" placeholder="問我習慣安排或目標…" aria-label="輸入問題"></textarea><button class="primary" id="geminiSend" type="submit" disabled>送出</button></form></aside>`);
+      renderGeminiMessages();
+    }
+  }
+
+  function assistantContext() {
+    const date = app.selectedDate;
+    const key = dateKey(date);
+    const habits = app.habits.filter(habit => scheduledOn(habit, date)).slice(0, 40).map(habit => ({
+      name: habit.name,
+      time: habit.time || '',
+      plannedMinutes: Number(habit.plans?.[getPeriod(habit.cycleUnit || 'week', date).key]?.plannedMinutes || habit.duration || 30),
+      status: app.statusOf(habit, key) === 'done' ? '已完成' : app.statusOf(habit, key) === 'skip' ? '已跳過' : '未完成',
+      goal: habit.goal?.name || undefined,
+      targetHours: habit.goal?.trackHours ? Number(habit.goal.targetHours || 0) : undefined,
+      completedHours: habit.goal?.trackHours ? Number(app.goalStats(habit)?.hours || 0) : undefined,
+    }));
+    const dayTasks = tasks.filter(task => task.dueDate === key).slice(0, 40).map(task => ({ title: task.title, status: task.done ? '已完成' : '未完成' }));
+    return { date: key, habits, tasks: dayTasks };
+  }
+
+  function renderGeminiMessages() {
+    const container = $('#geminiMessages');
+    if (!container) return;
+    const history = window.RiriGeminiAssistant?.readHistory?.() || [];
+    container.replaceChildren();
+    if (!history.length) {
+      const welcome = document.createElement('div');
+      welcome.className = 'gemini-bubble model';
+      welcome.textContent = '嗨！我可以陪你拆解目標、安排習慣，或一起想想如何重新開始。';
+      container.append(welcome);
+    } else {
+      history.slice(-40).forEach(message => {
+        if (message.role !== 'user' && message.role !== 'model') return;
+        const bubble = document.createElement('div');
+        bubble.className = `gemini-bubble ${message.role}`;
+        bubble.textContent = message.text || '';
+        if (message.role === 'user' && message.hasContext) {
+          const badge = document.createElement('small');
+          badge.className = 'gemini-context-badge';
+          badge.textContent = '已附所選日期摘要';
+          bubble.append(badge);
+        }
+        container.append(bubble);
+      });
+    }
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function setGeminiStatus(message) {
+    const label = $('#geminiStatus');
+    if (label && message) label.textContent = message;
+    const ready = window.RiriGeminiAssistant?.isReady === true;
+    const send = $('#geminiSend');
+    if (send) send.disabled = !ready || !$('#geminiConsent')?.checked;
+  }
+
+  function geminiErrorText(error) {
+    const message = String(error?.message || '目前無法連線 Gemini，請稍後再試。');
+    if (/PERMISSION_DENIED|403/i.test(message)) return 'Firebase AI Logic 或 App Check 尚未啟用，請確認 Firebase 專案設定。';
+    if (/RESOURCE_EXHAUSTED|429|quota/i.test(message)) return 'Gemini 使用量暫時達到上限，請稍後再試。';
+    if (/network|fetch|failed to fetch/i.test(message)) return '連線 Gemini 失敗，請檢查網路後再試。';
+    return message.slice(0, 300);
+  }
+
+  async function sendGeminiMessage() {
+    const assistant = window.RiriGeminiAssistant;
+    const input = $('#geminiInput');
+    const consent = $('#geminiConsent');
+    const sendButton = $('#geminiSend');
+    const container = $('#geminiMessages');
+    const question = input?.value.trim();
+    if (!question) return;
+    if (!consent?.checked) { app.toast('請先確認 Gemini 對話資料的傳送說明。'); consent?.focus(); return; }
+    if (!assistant || !assistant.isReady) { app.toast('Gemini 尚未完成 Firebase 設定。'); return; }
+
+    const history = assistant.readHistory();
+    const context = $('#geminiShareContext')?.checked ? assistantContext() : null;
+    const userBubble = document.createElement('div');
+    userBubble.className = 'gemini-bubble user';
+    userBubble.textContent = question;
+    if (context) {
+      const badge = document.createElement('small'); badge.className = 'gemini-context-badge'; badge.textContent = '已附所選日期摘要';
+      userBubble.append(badge);
+    }
+    const pending = document.createElement('div'); pending.className = 'gemini-bubble model pending'; pending.textContent = 'Gemini 正在思考…';
+    container.append(userBubble, pending);
+    container.scrollTop = container.scrollHeight;
+    input.value = '';
+    input.disabled = true;
+    sendButton.disabled = true;
+    try {
+      const result = await assistant.send(question, context, history);
+      history.push({ role: 'user', text: question, historyText: result.historyText, hasContext: !!context });
+      history.push({ role: 'model', text: result.answer, historyText: result.answer });
+      assistant.saveHistory(history);
+      const answer = document.createElement('div'); answer.className = 'gemini-bubble model'; answer.textContent = result.answer;
+      pending.replaceWith(answer);
+    } catch (error) {
+      pending.classList.add('error');
+      pending.textContent = geminiErrorText(error);
+    } finally {
+      input.disabled = false;
+      sendButton.disabled = !consent.checked || !assistant.isReady;
+      input.focus();
+      container.scrollTop = container.scrollHeight;
+    }
   }
 
   function applyTheme() {
@@ -478,6 +589,14 @@
 
   function attachEvents() {
     document.addEventListener('click', event => {
+      if (event.target.closest('#openGeminiAssistant')) { $('#geminiAssistantPanel').hidden = false; renderGeminiMessages(); setGeminiStatus(window.RiriGeminiAssistant?.status || '正在載入 Gemini…'); $('#geminiInput')?.focus(); return; }
+      if (event.target.closest('#closeGeminiAssistant')) { $('#geminiAssistantPanel').hidden = true; $('#openGeminiAssistant')?.focus(); return; }
+      if (event.target.closest('#clearGeminiChat')) {
+        if (window.confirm('要清除儲存在這個瀏覽器的 Gemini 對話紀錄嗎？')) { window.RiriGeminiAssistant?.clear(); renderGeminiMessages(); app.toast('本機對話紀錄已清除。'); }
+        return;
+      }
+      const promptButton = event.target.closest('[data-gemini-prompt]');
+      if (promptButton) { $('#geminiInput').value = promptButton.dataset.geminiPrompt || ''; if (promptButton.dataset.geminiContext === 'true') $('#geminiShareContext').checked = true; $('#geminiInput').focus(); return; }
       const navButton = event.target.closest('.nav button[data-view]');
       if (navButton) {
         event.preventDefault(); event.stopPropagation();
@@ -534,6 +653,7 @@
 
     document.addEventListener('keydown', event => {
       if (event.key === 'Enter' && event.target.matches('.habit-title[role="button"]')) { event.preventDefault(); event.target.click(); }
+      if (event.key === 'Escape' && !$('#geminiAssistantPanel')?.hidden) { $('#geminiAssistantPanel').hidden = true; }
     });
 
     $('#taskForm')?.addEventListener('submit', event => {
@@ -543,10 +663,15 @@
       saveTasks(); $('#taskTitle').value = ''; renderToday(); app.toast('待辦已加入。');
     });
 
+    $('#geminiForm')?.addEventListener('submit', event => { event.preventDefault(); sendGeminiMessage(); });
+    document.addEventListener('riri-gemini-ready', () => { setGeminiStatus(window.RiriGeminiAssistant?.status || 'Gemini 模組已載入'); renderGeminiMessages(); });
+
     document.addEventListener('change', event => {
       if (event.target.id === 'themeSetting') { preferences.theme = event.target.value; savePreferences(); applyTheme(); }
       if (event.target.id === 'topicSetting') { preferences.topic = event.target.value; savePreferences(); renderInspiration(); }
       if (event.target.id === 'displayNameSetting') { preferences.displayName = event.target.value.trim() || '朋友'; savePreferences(); renderToday(); }
+      if (event.target.id === 'geminiConsent') setGeminiStatus(window.RiriGeminiAssistant?.status || '正在載入 Gemini…');
+      if (event.target.id === 'geminiShareContext') { /* The context is collected only when the user sends a message. */ }
     });
 
     document.addEventListener('click', event => {
@@ -609,6 +734,7 @@
     if (formIconFields.length > 1) formIconFields[1].closest('.field')?.remove();
     applyTheme();
     attachEvents();
+    setGeminiStatus(window.RiriGeminiAssistant?.status || '正在載入 Gemini…');
     if ($('#themeSetting')) $('#themeSetting').value = preferences.theme || 'system';
     const integrationNotice = new URLSearchParams(location.search).get('integration');
     app.render();
@@ -618,5 +744,5 @@
     }
   }
 
-  window.RiriEnhancements = { initialize, renderToday, renderAlternate, onHabitStateChange };
+  window.RiriEnhancements = { initialize, renderToday, renderAlternate, onHabitStateChange, setGeminiStatus };
 })();
