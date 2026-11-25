@@ -11,16 +11,19 @@
   const savePreferences = () => localStorage.setItem(preferencesKey, JSON.stringify(preferences));
   const saveTasks = () => localStorage.setItem(tasksKey, JSON.stringify(tasks));
   const preferences = safeLoad(preferencesKey, {
-    theme: 'system', displayName: window.HABIT_DISPLAY_NAME || '我的帳戶', topic: '藝術', backendUrl: ''
+    theme: 'system', displayName: window.HABIT_DISPLAY_NAME || '我的帳戶', topic: '藝術', topics: ['藝術創作']
   });
   let tasks = safeLoad(tasksKey, []);
   let calendarMode = 'week';
   let calendarCursor = new Date();
   let reviewMode = 'week';
+  let reviewRange = null;
   let detailHabitId = null;
   let detailPreviousView = 'today';
-  let pendingPlanDates = [];
+  let pendingPlanDates = null;
   let detailSuggestion = null;
+  let pendingPlanHours = null;
+  let pendingPlanMilestones = null;
   let pendingHabitEdit = null;
   let initialized = false;
 
@@ -31,31 +34,55 @@
   const escapeHTML = app.escapeHTML;
   const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
   const topicPrompts = {
-    '藝術': [
-      '觀察一件日常物品：如果把它畫成三條線，哪三條最重要？',
-      '今天留意一種顏色，找找它在不同地方帶給你的感覺。',
-      '用五分鐘記錄一個畫面，不必完整，只要抓住最吸引你的地方。',
-      '試著用另一種媒材表達今天的心情：文字、聲音或線條都可以。'
-    ],
-    '財經': [
-      '選一個你常聽到的經濟指標，花十分鐘弄懂它代表什麼、又不代表什麼。',
-      '看一則財經報導時，找出數字的來源與比較基準，再形成自己的看法。',
-      '把今天讀到的市場消息寫成一句事實、一句解讀，分清兩者的差異。',
-      '挑一家公司，看看它的收入來源；理解生意如何運作也是一種練習。'
-    ],
-    '科學': [
-      '把今天的一個「為什麼」寫下來，再找一個可信來源開始查證。',
-      '用自己的話解釋一個剛學到的概念，看看哪裡還需要補充。',
-      '觀察一個生活中的現象，先提出假設，再想一個能驗證它的小方法。',
-      '花十分鐘讀一段科普內容，記下最想繼續追問的一個問題。'
-    ],
-    '設計': [
-      '挑一個今天用過的介面，想想它讓你更容易完成了哪一件事。',
-      '把一件麻煩的小事拆成三步，看看哪一步可以設計得更順手。',
-      '今天少做一個選擇：整理桌面、工具或提醒，讓下一步更容易開始。',
-      '找一個你喜歡的設計，說明它為什麼適合使用者，而不只是好看。'
-    ]
+    '藝術創作': ['把眼前一件物品畫成三條線，留下最重要的形狀。', '用五分鐘記錄今天最有感覺的一個畫面。', '用文字、顏色或聲音，替今天的心情做一張小作品。'],
+    '心理與自我成長': ['寫下一件今天做得不錯的小事，練習看見自己的努力。', '把最近煩惱的事分成「我能影響」和「暫時不能影響」兩欄。', '給明天的自己留一句具體而溫柔的提醒。'],
+    '閱讀與寫作': ['讀兩頁書，摘下一句讓你停下來想一想的話。', '用三句話記錄今天學到的事：事實、感受、下一步。', '挑一個主題自由寫五分鐘，不必急著修改。'],
+    '科學探索': ['把今天的一個「為什麼」寫下來，找一個可信來源開始查證。', '用自己的話解釋一個剛學到的概念。', '觀察一個生活現象，先提出假設，再想一個驗證方法。'],
+    '科技與 AI': ['找一個重複的小任務，想想科技可以如何替你省下一步。', '讀一則科技消息，分清楚已經發生的事和對未來的預測。', '試用一個新工具十分鐘，記下它真正解決了什麼問題。'],
+    '財經與理財': ['選一個常見經濟指標，弄懂它代表什麼、又不代表什麼。', '檢視一筆近期支出，想想它是否符合你重視的事。', '讀財經消息時，找出數字的來源與比較基準，再形成看法。'],
+    '職涯與工作': ['把手邊工作拆成最小的下一步，先專注完成十五分鐘。', '記下一項本週學到、下次可以重複使用的工作方法。', '寫下今天最有成就感的一刻，以及它需要哪些能力。'],
+    '商業與創業': ['想想你常使用的一項服務，它替人解決了什麼麻煩？', '把一個點子寫成「誰遇到什麼問題，我能怎麼幫忙」。', '觀察一家小店，留意它如何讓顧客願意再次回來。'],
+    '設計與靈感': ['挑一個今天用過的介面，想想它讓哪件事更容易。', '把一件麻煩的小事拆成三步，看看哪一步可以更順手。', '找一個喜歡的設計，記下它如何照顧使用者的需要。'],
+    '健康與運動': ['起身活動三分鐘，伸展肩頸或走一小段路。', '今天多留意一次身體訊號，安排一小段休息。', '把運動目標縮到容易開始的五分鐘，再決定要不要繼續。'],
+    '瑜伽與冥想': ['坐好一分鐘，慢慢數十次呼吸，不需要改變任何感受。', '做一個舒服的伸展，停留在不勉強的範圍。', '短暫放下螢幕，留意身體和周圍的三個聲音。'],
+    '美食與料理': ['用手邊食材做一道簡單料理，記下你最喜歡的味道。', '吃下一餐時放慢一點，留意食物的香氣與口感。', '挑一種常用食材，看看它還能有什麼新的搭配。'],
+    '旅行與文化': ['找一個陌生城市，花五分鐘了解它的一項日常文化。', '聽一首不同語言的歌，記下最吸引你的一個聲音。', '用一張照片或幾句話記錄你所在地方的生活風景。'],
+    '自然與環境': ['出門時留意一種植物、雲或鳥，觀察它一分鐘。', '今天少用一件一次性用品，看看替代方式是否可行。', '打開窗戶感受天氣，寫下一個你注意到的自然變化。'],
+    '電影與音樂': ['聽一首歌，專心找出一個以前沒留意的樂器或聲音。', '回想一個喜歡的電影場景，它為什麼讓你記得？', '用一段旋律或一句台詞描述今天的心情。'],
+    '生活整理': ['整理桌面一個小角落，讓明天開始時少一個阻礙。', '把一件待辦事縮小成兩分鐘能完成的版本。', '替常用物品找一個固定位置，減少下一次尋找時間。'],
+    '語言學習': ['學三個和今天生活有關的單字，試著各造一句話。', '聽一段短音檔，先抓大意，再回頭找一個不懂的片語。', '用正在學的語言寫一句今天的日記。'],
+    '時事與社會': ['讀一則公共議題報導，找出不同立場各自關心的事。', '看到一項新資訊時，先確認日期、來源和原始資料。', '挑一個社會議題，寫下你還想了解的一個問題。']
   };
+  const topicIcons = {
+    '藝術創作':'🎨','心理與自我成長':'🌱','閱讀與寫作':'📚','科學探索':'🔬','科技與 AI':'🤖','財經與理財':'💰',
+    '職涯與工作':'💼','商業與創業':'🚀','設計與靈感':'✏️','健康與運動':'🏃','瑜伽與冥想':'🧘','美食與料理':'🍲',
+    '旅行與文化':'🧳','自然與環境':'🌿','電影與音樂':'🎬','生活整理':'🧺','語言學習':'🗣️','時事與社會':'📰'
+  };
+  const topicInspiration = {
+    '藝術創作': { lines: ['先觀察一個細節，靈感常從注意開始。', '創作不必一次到位，先留下第一筆。', '換一種材料，也許就換一個看法。'], link: 'https://artsandculture.google.com/', linkLabel: '逛逛 Google Arts & Culture' },
+    '心理與自我成長': { lines: ['照顧自己的節奏，也是前進。', '不用一次解決所有事，先處理能改變的一小步。', '情緒值得被看見，不必急著修正。'], link: 'https://greatergood.berkeley.edu/', linkLabel: '閱讀幸福與心理學文章' },
+    '閱讀與寫作': { lines: ['讀到一句喜歡的話，停下來想想它為何打動你。', '寫作不必先有結論，先把觀察留下來。', '每天讀一小段，也是在替想像力留空間。'], link: 'https://www.gutenberg.org/', linkLabel: '探索免費電子書' },
+    '科學探索': { lines: ['好奇心，從一個可以查證的問題開始。', '先觀察，再提問；答案會更清楚。', '世界不缺奇妙的事，只缺多看一眼。'], link: 'https://science.nasa.gov/', linkLabel: '探索 NASA 科學內容' },
+    '科技與 AI': { lines: ['好工具的價值，是讓重要的事更容易。', '新科技值得好奇，也值得多問一句：證據在哪裡？', '試用工具時，留意它替你省下了哪一步。'], link: 'https://ai.google.dev/', linkLabel: '查看 Google AI 開發資源' },
+    '財經與理財': { lines: ['理解風險與時間，比追逐短期消息更重要。', '看見一個數字時，也看看它的來源和比較基準。', '理財的第一步，可以是弄清楚一筆錢去了哪裡。'], link: 'https://www.investor.gov/', linkLabel: '閱讀免費投資者教育資料' },
+    '職涯與工作': { lines: ['職涯的下一步，可能是今天練熟的一項能力。', '把大任務縮小，讓開始比等待完美容易。', '記下今天學到的方法，下次就能走得更穩。'], link: 'https://www.onetonline.org/', linkLabel: '探索職業與所需技能' },
+    '商業與創業': { lines: ['好點子先說清楚：幫誰解決什麼問題？', '觀察人們真正需要什麼，常比急著想答案更有用。', '一個小實驗，也能替大想法找到方向。'], link: 'https://ecorner.stanford.edu/', linkLabel: '收聽 Stanford 創業分享' },
+    '設計與靈感': { lines: ['好設計讓有用的事更容易被看見。', '試著少一個步驟，看看體驗會不會更順。', '靈感不只來自漂亮，也來自貼心。'], link: 'https://m3.material.io/', linkLabel: '瀏覽 Material Design 指引' },
+    '健康與運動': { lines: ['規律比強度更容易長久。', '今天多活動幾分鐘，也是在照顧未來的自己。', '休息和運動一樣，都是健康的一部分。'], link: 'https://www.who.int/news-room/fact-sheets/detail/physical-activity', linkLabel: '閱讀 WHO 身體活動資訊' },
+    '瑜伽與冥想': { lines: ['慢下來，也是一種練習。', '不用改變此刻的感受，先陪自己呼吸幾次。', '給身體一點空間，讓注意力回到當下。'], link: 'https://www.nhs.uk/every-mind-matters/mental-wellbeing-tips/relaxation/', linkLabel: '閱讀放鬆練習建議' },
+    '美食與料理': { lines: ['用手邊食材重新搭配，熟悉的味道也會有新發現。', '慢慢品嚐一口，留意香氣、口感和心情。', '一道簡單料理，也可以成為照顧自己的方式。'], link: 'https://www.nhs.uk/healthier-families/recipes/', linkLabel: '瀏覽免費食譜' },
+    '旅行與文化': { lines: ['理解一個地方，可以先從它的日常生活開始。', '旅行不只看風景，也是在練習用不同角度觀看。', '一段文化故事，常藏在普通的一天裡。'], link: 'https://www.unesco.org/en/culture', linkLabel: '探索 UNESCO 文化主題' },
+    '自然與環境': { lines: ['留心一小處自然，也能改變一天的視角。', '觀察一種植物或鳥，試著記住它的樣子。', '照顧環境，可以從今天少浪費一樣東西開始。'], link: 'https://www.inaturalist.org/observations', linkLabel: '看看世界各地的自然觀察' },
+    '電影與音樂': { lines: ['一段旋律或一個鏡頭，可能替心情找到語言。', '專心聽一首歌，試著發現以前沒注意的聲音。', '喜歡一部作品時，想想它讓你記得的是什麼。'], link: 'https://folkways.si.edu/', linkLabel: '聆聽 Smithsonian Folkways 音樂' },
+    '生活整理': { lines: ['整理空間，先替明天減少一個小阻力。', '留下真正需要的東西，也是在留出餘裕。', '兩分鐘能完成的小整理，也算一次重新開始。'], link: 'https://www.notion.so/templates/category/personal-productivity', linkLabel: '看看免費個人整理範本' },
+    '語言學習': { lines: ['每天用一句新語言，讓學習走進生活。', '說錯也沒關係，練習本來就是靠修正前進。', '把新單字放進自己的句子，記憶會更有溫度。'], link: 'https://www.bbc.co.uk/learningenglish/', linkLabel: '使用 BBC 免費英語學習資源' },
+    '時事與社會': { lines: ['理解一件事，別忘了看看數字背後的背景。', '讀新聞時，先確認日期、來源和原始資料。', '不同立場可以並存，先弄清楚各自在關心什麼。'], link: 'https://ourworldindata.org/', linkLabel: '查看全球議題與資料' },
+  };
+  const legacyTopicNames = { '藝術': '藝術創作', '財經': '財經與理財', '科學': '科學探索', '設計': '設計與靈感' };
+  const legacyTopics = Array.isArray(preferences.topics) ? preferences.topics : [preferences.topic || '藝術創作'];
+  preferences.topics = [...new Set(legacyTopics.map(topic => legacyTopicNames[topic] || topic).filter(topic => Object.hasOwn(topicPrompts, topic)))];
+  if (!preferences.topics.length) preferences.topics = ['藝術創作'];
+  delete preferences.topic;
 
   function getPeriod(unit, date) {
     const start = new Date(date);
@@ -98,14 +125,14 @@
 
   function addInterface() {
     if (!$('#inspirationCard')) {
-      $('#summary')?.insertAdjacentHTML('afterend', `<section id="inspirationCard" class="card inspiration-card" aria-live="polite"><div><div class="inspiration-eyebrow">TODAY'S SPARK · <span id="inspirationTopic">藝術</span></div><p class="inspiration-text" id="inspirationText"></p><div class="inspiration-source" id="inspirationSource">依偏好主題每日輪替的練習提示</div></div><div class="inspiration-actions"><button class="quiet-btn" id="nextInspiration" type="button">換一則</button><button class="quiet-btn" id="topicSettings" type="button">調整主題</button></div></section>`);
+      $('#summary')?.insertAdjacentHTML('afterend', `<section id="inspirationCard" class="card inspiration-card" aria-live="polite"><div><div class="inspiration-eyebrow">今日小練習 · <span id="inspirationTopic">藝術</span></div><p class="inspiration-text" id="inspirationText"></p><div class="inspiration-source" id="inspirationSource">依偏好主題每日輪替的練習提示</div><div class="mobile-theme-detail"><p id="mobileInspirationQuote"></p><a id="mobileInspirationLink" href="https://artsandculture.google.com/" target="_blank" rel="noopener noreferrer">延伸探索免費資源 →</a></div></div><div class="inspiration-actions"><button class="quiet-btn" id="nextInspiration" type="button">換一則</button><button class="quiet-btn" id="topicSettings" type="button">選擇靈感主題</button></div></section>`);
     }
     if (!$('#taskPanel')) {
       $('.content-grid')?.insertAdjacentHTML('afterend', `<section id="taskPanel" class="card task-panel"><div class="task-heading"><h2>今日待辦</h2><span id="taskCount" class="month"></span></div><form class="task-form" id="taskForm"><input id="taskTitle" maxlength="100" required aria-label="待辦內容" placeholder="新增一件今天想完成的事"><input id="taskDueDate" type="date" required aria-label="到期日"><button class="primary" type="submit">＋ 加入待辦</button></form><div class="task-list" id="taskList"></div></section>`);
     }
     const form = $('#habitForm');
     if (form && !$('#cycleUnit')) {
-      $('#dayChoices')?.insertAdjacentHTML('afterend', `<div class="period-settings"><div class="field"><label for="cycleUnit">目標週期</label><select id="cycleUnit" class="setting-select"><option value="week">每週</option><option value="month">每月</option></select></div><div class="field"><label for="periodTargetHours">每期目標投入（小時）</label><input id="periodTargetHours" class="period-target" type="number" min="0.25" step="0.25" placeholder="留空則依大目標估算"></div><p class="form-hint">每期可在習慣專屬頁選擇實際執行日期，系統會均分建議時數。</p></div>`);
+      $('#dayChoices')?.insertAdjacentHTML('afterend', `<div class="period-settings"><div class="field"><label for="cycleUnit">目標週期</label><select id="cycleUnit" class="setting-select"><option value="week">每週</option><option value="month">每月</option></select></div><div class="field"><label for="periodTargetHours">每週可學習時數（選填）</label><input id="periodTargetHours" class="period-target" type="number" min="0.25" step="0.25" placeholder="例如每週 8 小時"></div><p class="form-hint">每週可投入時數、目標期限與每週頻率可互相推算。若只設定子目標，Gemini 會先估總工作量；每期日期可在目標頁調整。</p></div>`);
     }
     if (!$('#habitDetailView')) {
       $('#alternateView')?.insertAdjacentHTML('afterend', `<section id="habitDetailView" class="detail-shell"><div class="heading-row"><div><div class="eyebrow">YOUR ROUTINE, YOUR PACE</div><h1 id="detailHeading" class="detail-title"></h1><p class="detail-subtitle">每期安排可以調整，已完成的紀錄會保留。</p></div><button class="secondary" id="detailBack" type="button">← 返回</button></div><div id="detailContent"></div></section>`);
@@ -230,14 +257,29 @@
   }
 
   function renderInspiration(forceRefresh = false) {
-    const topic = Object.hasOwn(topicPrompts, preferences.topic) ? preferences.topic : '藝術';
+    const topics = preferences.topics.length ? preferences.topics : ['藝術創作'];
+    const today = new Date();
+    const dayIndex = Math.floor(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) / 86400000);
+    const topic = topics[((dayIndex % topics.length) + topics.length) % topics.length];
     const list = topicPrompts[topic];
-    const dateIndex = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+    const feature = topicInspiration[topic] || topicInspiration['藝術創作'];
     const offset = Number(sessionStorage.getItem('riri-inspiration-offset') || 0);
     $('#inspirationTopic').textContent = topic;
-    $('#inspirationText').textContent = list[(dateIndex + offset) % list.length];
-    $('#inspirationSource').textContent = backendBase() ? '依你的主題由 AI 產生；無法連線時顯示主題提示' : '依偏好主題每日輪替的原創練習提示';
-    const requestKey = `${dateKey(new Date())}:${topic}:${offset}`;
+    $('#inspirationText').textContent = list[(dayIndex + offset) % list.length];
+    $('#inspirationSource').textContent = `每日從 ${topics.length} 個興趣主題輪替 · 今日原創靈感`;
+    $('#sidebarInspirationIcon').textContent = topicIcons[topic] || '✦';
+    $('#sidebarInspirationTopic').textContent = topic;
+    const featuredLine = feature.lines[(dayIndex + offset + 1) % feature.lines.length];
+    $('#sidebarInspirationQuote').textContent = featuredLine;
+    const resourceLink = $('#sidebarInspirationLink');
+    resourceLink.href = feature.link;
+    resourceLink.textContent = `${feature.linkLabel} →`;
+    $('#mobileInspirationQuote').textContent = featuredLine;
+    const mobileResourceLink = $('#mobileInspirationLink');
+    mobileResourceLink.href = feature.link;
+    mobileResourceLink.textContent = `${feature.linkLabel} →`;
+    const topicsKey = topics.join('|');
+    const requestKey = `${dateKey(today)}:${topicsKey}:${topic}:${offset}`;
     const responseKey = `riri-ai-inspiration:${identity}:${requestKey}`;
     const cached = safeLoad(responseKey, null);
     if (!forceRefresh && cached?.text) {
@@ -245,15 +287,6 @@
       $('#inspirationSource').textContent = cached.source || 'AI 每日靈感';
       return;
     }
-    if (!backendBase()) return;
-    apiRequest(`/inspiration/today?topic=${encodeURIComponent(topic)}${forceRefresh ? '&refresh=1' : ''}`)
-      .then(async response => { if (!response.ok) return null; return response.json(); })
-      .then(data => {
-        if (!data?.text) return;
-        localStorage.setItem(responseKey, JSON.stringify(data));
-        $('#inspirationText').textContent = data.text;
-        $('#inspirationSource').textContent = data.source || 'AI 每日靈感';
-      }).catch(() => {});
   }
 
   function renderTasks() {
@@ -315,7 +348,8 @@
   }
 
   function toolbar(active, modeKey, onChange, rangeText) {
-    return `<div class="view-toolbar"><div class="segmented"><button type="button" class="${active === 'week' ? 'active' : ''}" data-mode="week" data-mode-key="${modeKey}">週</button><button type="button" class="${active === 'month' ? 'active' : ''}" data-mode="month" data-mode-key="${modeKey}">月</button></div><button class="quiet-btn" type="button" data-step="-1" data-mode-key="${modeKey}">‹</button><button class="quiet-btn" type="button" data-step="1" data-mode-key="${modeKey}">›</button><button class="quiet-btn" type="button" data-today="true">今天</button><span class="range-label">${escapeHTML(rangeText)}</span></div>`;
+    const custom = modeKey === 'review' ? `<button type="button" class="${active === 'custom' ? 'active' : ''}" data-mode="custom" data-mode-key="review">自訂區間</button>` : '';
+    return `<div class="view-toolbar"><div class="segmented"><button type="button" class="${active === 'week' ? 'active' : ''}" data-mode="week" data-mode-key="${modeKey}">週</button><button type="button" class="${active === 'month' ? 'active' : ''}" data-mode="month" data-mode-key="${modeKey}">月</button>${custom}</div><button class="quiet-btn" type="button" data-step="-1" data-mode-key="${modeKey}">‹</button><button class="quiet-btn" type="button" data-step="1" data-mode-key="${modeKey}">›</button><button class="quiet-btn" type="button" data-today="true" data-mode-key="${modeKey}">今天</button><span class="range-label">${escapeHTML(rangeText)}</span></div>`;
   }
 
   function renderWeekBoard() {
@@ -345,8 +379,16 @@
   }
 
   function renderReview() {
-    const period = reviewMode === 'month' ? getPeriod('month', calendarCursor) : getPeriod('week', calendarCursor);
     const todayKey = dateKey(app.today);
+    let period;
+    if (reviewMode === 'custom') {
+      if (!reviewRange) reviewRange = { start: dateKey(addDays(app.today, -29)), end: todayKey };
+      let start = fromKey(reviewRange.start);
+      let end = fromKey(reviewRange.end);
+      if (reviewRange.start > reviewRange.end) { [start, end] = [end, start]; }
+      if (dateKey(end) > todayKey) end = fromKey(todayKey);
+      period = { start, end };
+    } else period = reviewMode === 'month' ? getPeriod('month', calendarCursor) : getPeriod('week', calendarCursor);
     const dates = datesInPeriod(period).filter(date => dateKey(date) <= todayKey);
     const rows = dates.map(dateFacts);
     const done = rows.reduce((sum, row) => sum + row.done, 0);
@@ -358,12 +400,33 @@
     const donut = `conic-gradient(var(--green) 0 ${donePct}%, #d6a55c ${donePct}% ${donePct + skippedPct}%, #d7ddd5 ${donePct + skippedPct}% 100%)`;
     const label = reviewMode === 'month' ? `${period.start.getFullYear()}年${period.start.getMonth() + 1}月` : `${period.start.getMonth() + 1}/${period.start.getDate()}–${period.end.getMonth() + 1}/${period.end.getDate()}`;
     const dailyRows = rows.slice().reverse().map(row => `<div class="daily-review-row"><span>${row.date.getMonth() + 1}/${row.date.getDate()}（${weekdayNames[row.date.getDay()]}）</span><div class="daily-review-bar"><i style="width:${row.total ? row.done / row.total * 100 : 0}%"></i></div><b>${row.total ? Math.round(row.done / row.total * 100) : 0}%</b></div>`).join('');
-    return `${toolbar(reviewMode, 'review', null, label)}<div class="review-overview"><div class="donut" style="background:${donut}"><div class="donut-center"><b>${total ? Math.round(done / total * 100) : 0}%</b><span>完成率</span></div></div><div class="legend-list"><div class="legend-row"><i class="legend-swatch" style="background:var(--green)"></i>已完成 <b>${done}</b></div><div class="legend-row"><i class="legend-swatch" style="background:#d6a55c"></i>跳過 <b>${skipped}</b></div><div class="legend-row"><i class="legend-swatch" style="background:#d7ddd5"></i>未完成 <b>${unfinished}</b></div><small class="muted">統計截至今天；未來排程不計入未完成率。</small></div></div><h3 class="section-label">每日完成率</h3>${dailyRows || '<div class="empty-state">這段期間還沒有排程紀錄。</div>'}`;
+    const rangeControls = reviewMode === 'custom' ? `<div class="review-range"><label>開始日期<input id="reviewStart" type="date" value="${dateKey(period.start)}" max="${todayKey}"></label><span>至</span><label>結束日期<input id="reviewEnd" type="date" value="${dateKey(period.end)}" max="${todayKey}"></label></div>` : '';
+    const weekdayTotals = Array.from({ length: 7 }, (_, day) => {
+      const group = rows.filter(row => row.date.getDay() === day);
+      const groupTotal = group.reduce((sum, row) => sum + row.total, 0);
+      const groupDone = group.reduce((sum, row) => sum + row.done, 0);
+      return { day, count: group.length, total: groupTotal, done: groupDone, pct: groupTotal ? Math.round(groupDone / groupTotal * 100) : 0 };
+    }).filter(group => group.total);
+    const weekdayRows = weekdayTotals.map(group => `<div class="weekday-review-row"><span>${weekdayNames[group.day]}曜日 <small>${group.count} 天 · ${group.total} 項</small></span><div class="daily-review-bar"><i style="width:${group.pct}%"></i></div><b>${group.pct}%</b></div>`).join('');
+    return `${toolbar(reviewMode, 'review', null, label)}${rangeControls}<div class="review-overview"><div class="donut" style="background:${donut}"><div class="donut-center"><b>${total ? Math.round(done / total * 100) : 0}%</b><span>完成率</span></div></div><div class="legend-list"><div class="legend-row"><i class="legend-swatch" style="background:var(--green)"></i>已完成 <b>${done}</b></div><div class="legend-row"><i class="legend-swatch" style="background:#d6a55c"></i>跳過 <b>${skipped}</b></div><div class="legend-row"><i class="legend-swatch" style="background:#d7ddd5"></i>未完成 <b>${unfinished}</b></div><small class="muted">統計截至今天；未來排程不計入未完成率。</small></div></div><h3 class="section-label">星期表現</h3><div class="weekday-review">${weekdayRows || '<div class="empty-state">所選期間還沒有排程紀錄。</div>'}</div><h3 class="section-label">每日完成率</h3>${dailyRows || '<div class="empty-state">這段期間還沒有排程紀錄。</div>'}`;
   }
 
   function renderSettings() {
     const option = (value, label, selected) => `<option value="${value}" ${selected === value ? 'selected' : ''}>${label}</option>`;
-    return `<div class="settings-section"><h3>外觀與個人化</h3><label class="setting-row"><span>顯示模式<small>選擇日間、夜間或跟隨裝置設定</small></span><select class="setting-select" id="themeSetting">${option('system', '跟隨系統', preferences.theme)}${option('light', '日間模式', preferences.theme)}${option('dark', '夜間模式', preferences.theme)}</select></label><label class="setting-row"><span>首頁稱呼<small>用你喜歡的名字問候你</small></span><input id="displayNameSetting" class="setting-input" maxlength="24" value="${escapeHTML(preferences.displayName || '')}"></label><label class="setting-row"><span>每日靈感主題<small>每天依偏好顯示不同的練習提示</small></span><select class="setting-select" id="topicSetting">${['藝術','財經','科學','設計'].map(value => option(value, value, preferences.topic)).join('')}</select></label></div><div class="settings-section"><h3>提醒</h3><label class="setting-row"><span>瀏覽器通知<small>目前裝置上的提醒；手機推播需設定推播服務</small></span><button class="state-btn" id="settingsNotify">${'Notification' in window && Notification.permission === 'granted' ? '已允許' : '設定通知'}</button></label><div class="settings-row-note">Google 日曆可另外提供跨裝置事件提醒。</div></div><div class="settings-section"><h3>外部工具</h3><p class="integration-intro">連線由 App 後端安全處理；前端不保存 Google 或 Notion 金鑰。</p><label class="setting-row"><span>後端 API 網址<small>部署整合服務後貼上服務網址</small></span><input id="backendUrlSetting" class="backend-url" type="url" placeholder="https://api.example.com" value="${escapeHTML(preferences.backendUrl || '')}"></label><div class="backend-row"><button class="secondary" id="saveBackendUrl" type="button">儲存 API 網址</button><button class="quiet-btn" id="refreshIntegrations" type="button">更新連線狀態</button></div><div id="integrationStatus"><div class="integration-card"><div><div class="integration-title">Google 日曆</div><small>建立習慣排程並更新完成狀態</small><div class="integration-status" data-provider-status="GOOGLE">尚未連線</div></div><div class="integration-actions"><button class="state-btn" data-connect="google" type="button">連結 Google</button></div></div><div class="integration-card"><div><div class="integration-title">Notion</div><small>將每期執行紀錄備份到你的資料庫</small><div class="integration-status" data-provider-status="NOTION">尚未連線</div></div><div class="integration-actions"><button class="state-btn" data-connect="notion" type="button">連結 Notion</button></div></div></div><p class="backend-note">整合後端尚未設定時，這些連結會保持待設定狀態；請勿在此輸入 Integration Token 或 OAuth 密鑰。</p></div>`;
+    const selectedTopics = new Set(preferences.topics);
+    const topicChoices = Object.keys(topicPrompts).map(topic => `<label class="interest-chip"><input type="checkbox" data-interest-topic="${escapeHTML(topic)}" ${selectedTopics.has(topic) ? 'checked' : ''}><span class="interest-icon">${topicIcons[topic]}</span><span>${escapeHTML(topic)}</span></label>`).join('');
+    return `<div class="settings-section"><h3>外觀與個人化</h3><label class="setting-row"><span>顯示模式<small>選擇日間、夜間或跟隨裝置設定</small></span><select class="setting-select" id="themeSetting">${option('system', '跟隨系統', preferences.theme)}${option('light', '日間模式', preferences.theme)}${option('dark', '夜間模式', preferences.theme)}</select></label><label class="setting-row"><span>首頁稱呼<small>用你喜歡的名字問候你</small></span><input id="displayNameSetting" class="setting-input" maxlength="24" value="${escapeHTML(preferences.displayName || '')}"></label></div><section class="settings-section inspiration-preferences" id="inspirationPreferences" aria-labelledby="inspirationPreferencesTitle"><h3 id="inspirationPreferencesTitle">每日靈感主題</h3><p class="settings-lead">選擇你感興趣的方向，首頁小練習與側欄靈感卡會同步更新主題句子和免費延伸資源。</p><div class="interest-grid">${topicChoices}</div><p class="interest-selection-count" id="interestSelectionCount" aria-live="polite">目前選取 ${preferences.topics.length} 個主題，至少保留一個。</p><small class="form-hint">內容為原創主題提示並連結免費資源，不會擷取 Reddit、X、Pinterest 或小紅書的貼文。</small></section><div class="settings-section"><h3>提醒</h3><label class="setting-row"><span>瀏覽器通知<small>在目前裝置顯示提醒；需要瀏覽器允許通知</small></span><button class="state-btn" id="settingsNotify">${'Notification' in window && Notification.permission === 'granted' ? '已允許' : '設定通知'}</button></label></div><div class="settings-section"><h3>資料與服務</h3><p class="free-tier-note">習慣、計畫與筆記保存在此瀏覽器，不需要另外設定 API 網址或付費伺服器。AI 計畫會使用現有 Gemini 服務；若暫時無法連線，仍可使用本機免費時數估算。</p><p class="free-tier-note">Google 日曆與 Notion 需要額外的安全整合伺服器，因此目前不會顯示在免費版介面中。</p></div>`;
+  }
+
+  function renderHabitIndex() {
+    if (!app.habits.length) return '<div class="empty-state">還沒有習慣。新增第一個習慣後，這裡會整理所有追蹤項目。</div>';
+    const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+    const rows = app.habits.map(habit => {
+      const stats = app.goalStats(habit);
+      const days = [...(habit.days || [])].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map(day => `週${dayNames[day]}`).join('、') || '未設定';
+      return `<button class="habit-index-row" type="button" data-open-habit="${escapeHTML(habit.id)}"><span class="habit-index-icon">${escapeHTML(habit.icon || '✨')}</span><span class="habit-index-main"><b>${escapeHTML(habit.name)}</b><small>${escapeHTML(habit.time || '未設定時間')} · ${escapeHTML(days)}</small></span><span class="habit-index-goal"><small>目標</small><b>${escapeHTML(habit.goal?.name || '尚未設定')}</b></span><span class="habit-index-progress"><b>${stats ? `${stats.pct}%` : '—'}</b><small>${stats ? '目標進度' : '尚無目標'}</small></span><span class="habit-index-arrow">查看追蹤 →</span></button>`;
+    }).join('');
+    return `<div class="habit-index-intro">共 ${app.habits.length} 個習慣。選取任一項目，可查看週期計畫、目標、完成紀錄、執行方式與相關資源。</div><div class="habit-index-table">${rows}</div>`;
   }
 
   function renderAlternate() {
@@ -373,6 +436,7 @@
     $('#alternateView').style.display = view === 'today' ? 'none' : '';
     $('#habitDetailView').classList.remove('active');
     const details = {
+      habits: ['習慣總表', '集中檢視每個習慣的週期、目標與累積進度。', '所有習慣'],
       calendar: ['行事曆', '依週或月查看習慣與待辦安排。', '週期安排'],
       review: ['成效回顧', '看見已完成、跳過與未完成的比例。', '完成率統計'],
       settings: ['偏好設定', '依照你的生活方式調整日日。', '外觀、提醒與整合']
@@ -383,36 +447,51 @@
     $('#altDescription').textContent = description;
     $('#altPanelTitle').textContent = panel;
     $('#altAdd').style.display = view === 'settings' ? 'none' : '';
-    if (view === 'calendar') $('#altContent').innerHTML = calendarMode === 'week' ? renderWeekBoard() : renderMonthBoard();
+    if (view === 'habits') $('#altContent').innerHTML = renderHabitIndex();
+    else if (view === 'calendar') $('#altContent').innerHTML = calendarMode === 'week' ? renderWeekBoard() : renderMonthBoard();
     else if (view === 'review') $('#altContent').innerHTML = renderReview();
     else if (view === 'settings') $('#altContent').innerHTML = renderSettings();
-    if (view === 'settings') refreshIntegrationStatus();
   }
 
   function updatePlanEstimate(habit, selectedCount) {
-    const totalHours = Number(habit.periodTargetHours) || Math.max(0.25, Number(habit.duration || 30) * (habit.days?.length || 1) / 60);
-    const suggestedSessionMinutes = selectedCount ? Math.round(totalHours * 60 / selectedCount) : 0;
+    const sessionsPerPeriod = Math.max(1, habit.days?.length || 1) * (habit.cycleUnit === 'month' ? 4.35 : 1);
     const currentGoal = habit.goal ? app.goalStats(habit) : null;
-    const remaining = habit.goal?.trackHours ? Math.max(0, Number(habit.goal.targetHours || 0) - (currentGoal?.hours || 0)) : null;
+    const goalWorkload = habit.goal?.trackHours
+      ? Number(habit.goal.targetHours || 0)
+      : Number(habit.goal?.estimatedTargetHours || 0);
+    const hasGoalWorkload = goalWorkload > 0;
+    const remaining = hasGoalWorkload
+      ? Math.max(0, goalWorkload - (habit.goal?.trackHours ? (currentGoal?.hours || 0) : 0))
+      : null;
     const period = getPeriod(habit.cycleUnit || 'week', app.today);
     const deadline = habit.goal?.date ? fromKey(habit.goal.date) : null;
     const interval = habit.cycleUnit === 'month' ? 30.44 : 7;
-    const periodsLeft = deadline ? Math.max(1, Math.ceil((deadline - period.start) / (interval * 86400000))) : 1;
-    const suggestedHours = remaining === null ? totalHours : Math.min(totalHours, remaining / periodsLeft);
-    return { targetHours: totalHours, suggestedHours, suggestedSessionMinutes, remaining, periodsLeft };
+    const periodsLeft = deadline ? Math.max(1, Math.ceil((deadline - period.start) / (interval * 86400000))) : (habit.cycleUnit === 'month' ? 3 : 12);
+    const routineHours = Math.max(0.25, Number(habit.duration || 30) * sessionsPerPeriod / 60);
+    const weeklyAvailableHours = Number(habit.periodTargetHours) || null;
+    const availableHours = weeklyAvailableHours === null ? null : weeklyAvailableHours * (habit.cycleUnit === 'month' ? 4.35 : 1);
+    const suggestedHours = remaining === null
+      ? (availableHours || routineHours)
+      : Math.round(remaining / periodsLeft * 100) / 100;
+    const capacityHours = availableHours;
+    const feasible = capacityHours === null || suggestedHours <= capacityHours;
+    const suggestedSessionMinutes = selectedCount ? Math.round(suggestedHours * 60 / selectedCount) : 0;
+    return { targetHours: hasGoalWorkload ? goalWorkload : routineHours, suggestedHours, suggestedSessionMinutes, remaining, periodsLeft, capacityHours, feasible, hasGoalWorkload };
   }
 
   function openDetail(id) {
     const habit = app.habits.find(item => item.id === id);
     if (!habit) return;
     detailHabitId = id;
-    pendingPlanDates = [];
+      pendingPlanDates = null;
     detailSuggestion = null;
+    pendingPlanHours = null;
+    pendingPlanMilestones = null;
     detailPreviousView = $('.nav button.active')?.dataset.view || 'today';
     $('#todayView').style.display = 'none';
     $('#alternateView').style.display = 'none';
     $('#habitDetailView').classList.add('active');
-    $$('.nav button').forEach(button => button.classList.toggle('active', button.dataset.view === 'today'));
+    $$('.nav button').forEach(button => button.classList.toggle('active', button.dataset.view === detailPreviousView));
     $('#detailHeading').textContent = `${habit.icon || '✨'} ${habit.name}`;
     $('#crumbName').textContent = habit.name;
     renderDetail();
@@ -428,151 +507,87 @@
     if (view === 'review') $('#altContent').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  function backendBase() { return String(preferences.backendUrl || '').trim().replace(/\/+$/, ''); }
-  async function authHeaders() {
-    if (typeof window.RIRI_GET_ID_TOKEN !== 'function') throw new Error('請使用 Google 帳戶登入後連結外部服務。');
-    const token = await window.RIRI_GET_ID_TOKEN();
-    if (!token) throw new Error('登入狀態已失效，請重新登入。');
-    return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-  }
-  async function apiRequest(path, options = {}) {
-    const base = backendBase();
-    if (!base) throw new Error('請先輸入並儲存整合後端 API 網址。');
-    return fetch(`${base}${path}`, { ...options, headers: { ...(await authHeaders()), ...options.headers } });
-  }
-
-  async function connectProvider(provider) {
-    try {
-      const response = await apiRequest(`/integrations/${provider}/authorize-url`);
-      const data = await response.json();
-      if (!response.ok || !data.authorizationUrl) throw new Error(data.message || `無法建立 ${provider} 授權連結`);
-      location.assign(data.authorizationUrl);
-    } catch (error) { app.toast(error.message || '連線失敗'); }
-  }
-
-  async function refreshIntegrationStatus() {
-    const container = $('#integrationStatus');
-    if (!container) return;
-    if (!backendBase()) {
-      $$('.integration-status', container).forEach(status => status.textContent = '待設定後端服務');
-      return;
-    }
-    try {
-      const response = await apiRequest('/integrations/status');
-      if (!response.ok) throw new Error('無法讀取連線狀態');
-      const data = await response.json();
-      for (const provider of ['GOOGLE', 'NOTION']) {
-        const connected = data.integrations.some(item => item.provider === provider && item.connected);
-        const status = $(`[data-provider-status="${provider}"]`, container);
-        if (status) status.textContent = connected ? (provider === 'NOTION' && data.integrations.find(item => item.provider === provider)?.notionDatabaseId ? '已連線並選擇資料庫' : '已連線') : '尚未連線';
-        const button = $(`[data-connect="${provider.toLowerCase()}"]`, container);
-        if (button) button.textContent = connected ? '重新連結' : `連結 ${provider === 'GOOGLE' ? 'Google' : 'Notion'}`;
-      }
-      if (data.integrations.some(item => item.provider === 'NOTION' && item.connected)) renderNotionDatabasePicker();
-    } catch (error) {
-      $$('.integration-status', container).forEach(status => status.textContent = '後端目前無法連線');
-    }
-  }
-
-  async function renderNotionDatabasePicker() {
-    const container = $('#integrationStatus');
-    if (!container || $('#notionDatabaseSelect')) return;
-    try {
-      const response = await apiRequest('/integrations/notion/databases');
-      if (!response.ok) return;
-      const databases = await response.json();
-      const picker = document.createElement('div');
-      picker.className = 'integration-actions';
-      picker.innerHTML = `<select class="integration-db-select" id="notionDatabaseSelect" aria-label="選擇 Notion 資料庫"><option value="">選擇目標資料庫</option>${databases.map(item => `<option value="${escapeHTML(item.id)}">${escapeHTML(item.title)}</option>`).join('')}</select><button class="state-btn" id="saveNotionDatabase" type="button">套用</button>`;
-      $('.integration-card:nth-child(2)', container)?.append(picker);
-    } catch { /* Connection status already communicates unavailable backend. */ }
-  }
-
-  async function syncNotionPeriod(habit) {
-    const period = getPeriod(habit.cycleUnit || 'week', app.today);
-    const plan = habit.plans?.[period.key];
-    const dates = plan?.dates || datesInPeriod(period).filter(date => (habit.days || []).includes(date.getDay())).map(dateKey);
-    if (!dates.length) { app.toast('先選擇本期執行日期，再同步到 Notion。'); return; }
-    try {
-      for (const key of dates) {
-        const response = await apiRequest('/integrations/notion/occurrences', {
-          method: 'POST', body: JSON.stringify({
-            syncKey: `${habit.id}:${key}`, habitName: habit.name, frequency: habit.cycleUnit === 'month' ? '每月' : '每週',
-            expectedHours: Number(plan?.plannedMinutes || habit.duration || 30) / 60,
-            status: app.statusOf(habit, key) === 'done' ? '已完成' : app.statusOf(habit, key) === 'skip' ? '跳過' : '待開始',
-            executionDate: key
-          })
-        });
-        if (!response.ok) throw new Error('Notion 同步失敗，請確認資料庫欄位設定。');
-      }
-      app.toast('本期紀錄已送到 Notion 同步佇列。');
-    } catch (error) { app.toast(error.message || 'Notion 同步失敗'); }
-  }
-
-  async function syncGooglePeriod(habit) {
-    const period = getPeriod(habit.cycleUnit || 'week', app.today);
-    const plan = habit.plans?.[period.key];
-    const dates = plan?.dates || datesInPeriod(period).filter(date => (habit.days || []).includes(date.getDay())).map(dateKey);
-    if (!dates.length) { app.toast('先選擇本期執行日期，再同步到 Google 日曆。'); return; }
-    try {
-      const sorted = [...dates].sort();
-      const first = fromKey(sorted[0]);
-      const [hours, minutes] = String(habit.time || '20:00').split(':').map(Number);
-      first.setHours(hours, minutes, 0, 0);
-      const durationMinutes = Number(plan?.plannedMinutes || habit.duration || 30);
-      const occurrences = sorted.map(key => {
-        const start = fromKey(key);
-        start.setHours(hours, minutes, 0, 0);
-        return { date: key, start: start.toISOString(), end: new Date(start.getTime() + durationMinutes * 60_000).toISOString() };
-      });
-      const response = await apiRequest('/integrations/google/schedules', {
-        method: 'POST', body: JSON.stringify({
-          habitId: habit.id, name: habit.name, start: first.toISOString(), end: new Date(period.end.getFullYear(), period.end.getMonth(), period.end.getDate(), 23, 59, 0).toISOString(),
-          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, durationMinutes,
-          intervalWeeks: 1, weekdays: sorted.map(key => fromKey(key).getDay()), occurrences, cycleUnit: habit.cycleUnit || 'week'
-        })
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.message || 'Google 日曆同步失敗');
-      app.toast('排程已送到 Google 日曆同步佇列。');
-    } catch (error) { app.toast(error.message || 'Google 日曆同步失敗'); }
+  function openInspirationSettings() {
+    showView('settings');
+    const section = $('#inspirationPreferences');
+    if (!section) { app.toast('偏好設定載入中，請再試一次。'); return; }
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('[data-interest-topic]', section)?.focus({ preventScroll: true });
+    app.toast('已開啟每日靈感主題設定。');
   }
 
   async function requestAiPlan() {
     const habit = app.habits.find(item => item.id === detailHabitId);
     if (!habit) return;
-    if (!backendBase()) { app.toast('AI 計畫服務需先部署並設定後端 API 網址。'); return; }
+    if (!pendingPlanDates.length) { app.toast('先選擇本期執行日期，再產生計畫。'); return; }
+    const estimate = updatePlanEstimate(habit, pendingPlanDates.length);
+    const goal = habit.goal || {};
+    const goalScope = [goal.name || habit.name, ...(goal.milestones || []).map(item => item.text)].filter(Boolean).join('\n');
+    const unitName = habit.cycleUnit === 'month' ? '月' : '週';
+    const explanation = estimate.remaining === null
+      ? `依每期可投入時數與習慣頻率，先安排每${unitName} ${estimate.suggestedHours.toFixed(1)} 小時。`
+      : `剩餘 ${estimate.remaining.toFixed(1)} 小時，分配到 ${estimate.periodsLeft} 個${unitName}期，建議每${unitName}投入 ${estimate.suggestedHours.toFixed(1)} 小時。`;
+    detailSuggestion = { ...estimate, explanation, milestones: [], source: '本機免費估算' };
+    if (!$('#planAiConsent')?.checked) {
+      renderDetail();
+      app.toast(estimate.hasGoalWorkload
+        ? '本機時數已估算；若要 Gemini 拆解或微調計畫，請先勾選資料使用同意。'
+        : '請先勾選資料使用同意，Gemini 才能依目標與子目標估算總時數。');
+      return;
+    }
+    const assistant = window.RiriGeminiAssistant;
+    if (!assistant?.isReady || typeof assistant.suggestPlan !== 'function') {
+      renderDetail();
+      app.toast(estimate.hasGoalWorkload
+        ? 'Gemini 目前無法連線；你仍可手動安排本期時數與日期。'
+        : 'Gemini 目前尚未就緒；習慣已可儲存，子目標總時數需要 Gemini 估算後才能排程。');
+      return;
+    }
+    const button = $('#requestAiPlan');
+    if (button) { button.disabled = true; button.textContent = '正在整理…'; }
     try {
-      const stats = app.goalStats(habit) || { hours: 0 };
-      const response = await apiRequest('/plans/suggest', {
-        method: 'POST', body: JSON.stringify({
-          goalName: habit.goal?.name || habit.name,
-          targetHours: Number(habit.goal?.targetHours || habit.periodTargetHours || 0),
-          completedHours: stats.hours,
-          deadline: habit.goal?.date || undefined,
-          periodUnit: habit.cycleUnit || 'week',
-          sessionsPerPeriod: Math.max(1, pendingPlanDates.length),
-          capacityHours: Number(habit.periodTargetHours) || undefined
-        })
+      const result = await assistant.suggestPlan({
+        goalName: habit.goal?.name || habit.name,
+        totalTargetHours: habit.goal?.trackHours ? Number(habit.goal.targetHours || 0) : null,
+        goalScope,
+        completedHours: habit.goal?.trackHours ? Math.max(0, Number(app.goalStats(habit)?.hours || 0)) : 0,
+        periodUnit: unitName,
+        periodsLeft: estimate.periodsLeft,
+        sessionsPerPeriod: pendingPlanDates.length,
+        weeklyAvailableHours: habit.periodTargetHours || null,
+        sessionsPerWeek: habit.days?.length || 0,
+        sessionMinutes: estimate.suggestedSessionMinutes,
+        deadline: habit.goal?.date || '',
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error('目前無法產生計畫建議');
-      detailSuggestion = result;
-      $('#planSuggestionText').textContent = `${result.explanation} ${result.source}`;
-      $('#planSessionMinutes').textContent = `每次約 ${result.minutesPerSession} 分鐘`;
-      app.toast(result.feasible ? '計畫建議已更新，可檢視後儲存。' : '目前目標超出每期投入上限，請調整期限或投入。');
-    } catch (error) { app.toast(error.message || 'AI 計畫服務目前無法連線。'); }
+      const remainingHours = Math.max(0, result.totalTargetHours - (habit.goal?.trackHours ? Number(app.goalStats(habit)?.hours || 0) : 0));
+      const weeklyBudget = Number(habit.periodTargetHours) || 0;
+      const periodBudget = weeklyBudget * (habit.cycleUnit === 'month' ? 4.35 : 1);
+      const suggestedHours = remainingHours > 0
+        ? Math.min(remainingHours, Math.round((!habit.goal?.date && periodBudget > 0 ? periodBudget : remainingHours / estimate.periodsLeft) * 100) / 100)
+        : 0;
+      const minimumHours = suggestedHours > 0 ? Math.max(0.25, suggestedHours * 0.5) : 0;
+      const maximumHours = Math.min(remainingHours || result.totalTargetHours, Math.max(suggestedHours, suggestedHours * 1.5, minimumHours));
+      const withinRange = result.hoursPerPeriod >= minimumHours && result.hoursPerPeriod <= maximumHours;
+      detailSuggestion.targetHours = result.totalTargetHours;
+      detailSuggestion.sessionsPerWeek = result.sessionsPerWeek;
+      detailSuggestion.estimatedWeeks = result.estimatedWeeks;
+      detailSuggestion.suggestedHours = withinRange ? Math.round(result.hoursPerPeriod * 100) / 100 : suggestedHours;
+      detailSuggestion.suggestedSessionMinutes = Math.round(detailSuggestion.suggestedHours * 60 / pendingPlanDates.length);
+      detailSuggestion.remaining = remainingHours;
+      detailSuggestion.hasGoalWorkload = true;
+      detailSuggestion.feasible = estimate.capacityHours === null || detailSuggestion.suggestedHours <= estimate.capacityHours;
+      pendingPlanHours = detailSuggestion.suggestedHours;
+      pendingPlanMilestones = result.milestones.join('\n');
+      detailSuggestion.milestones = result.milestones;
+      detailSuggestion.explanation = `Gemini 預估總工作量 ${result.totalTargetHours.toFixed(1)} 小時；建議每${unitName}投入 ${detailSuggestion.suggestedHours.toFixed(1)} 小時、每週 ${result.sessionsPerWeek.toFixed(1)} 次，約 ${result.estimatedWeeks.toFixed(1)} 週完成${result.reason ? `。${result.reason}` : ''}${withinRange ? '' : '（每期時數依期限與剩餘工作量重新計算）'}`;
+      detailSuggestion.source = 'Gemini 目標時數估算＋本機排程驗算';
+      app.toast('計畫建議已更新，可檢視並調整後儲存。');
+    } catch (error) {
+      detailSuggestion.source = 'Gemini 暫時無法使用，保留本機免費估算';
+      app.toast(error?.message || 'Gemini 暫時無法使用，免費估算已保留。');
+    }
+    renderDetail();
   }
-
-  const renderDetailContent = renderDetail;
-  renderDetail = function renderDetailWithPlanTools() {
-    renderDetailContent();
-    const footer = $('.period-plan-footer', $('#detailContent'));
-    if (!footer) return;
-    const habit = app.habits.find(item => item.id === detailHabitId);
-    const estimate = habit ? updatePlanEstimate(habit, pendingPlanDates.length) : { suggestedHours: 0 };
-    footer.innerHTML = `<div class="period-plan-copy"><small id="planSessionMinutes">每次約 ${pendingPlanDates.length ? Math.round((detailSuggestion?.suggestedHours || estimate.suggestedHours) * 60 / pendingPlanDates.length) : 0} 分鐘</small><span id="planSuggestionText">${escapeHTML(detailSuggestion?.explanation || `建議每期投入 ${estimate.suggestedHours.toFixed(1)} 小時。`)}</span></div><div class="integration-actions"><button class="quiet-btn" id="requestAiPlan" type="button">AI 估算</button><button class="primary" id="savePeriodPlan" type="button">儲存本期計畫</button></div>`;
-  };
 
   function renderDetail() {
     const habit = app.habits.find(item => item.id === detailHabitId);
@@ -580,14 +595,101 @@
     const period = getPeriod(habit.cycleUnit || 'week', app.today);
     const persisted = habit.plans?.[period.key];
     const dates = datesInPeriod(period);
-    if (!pendingPlanDates.length) pendingPlanDates = persisted?.dates || dates.filter(date => (habit.days || []).includes(date.getDay())).map(dateKey);
+    if (pendingPlanDates === null) pendingPlanDates = persisted?.dates || dates.filter(date => (habit.days || []).includes(date.getDay())).map(dateKey);
     const estimate = updatePlanEstimate(habit, pendingPlanDates.length);
     const stats = app.goalStats(habit) || { pct: 0, hours: 0 };
-    const completionDates = Object.entries(habit.states || {}).filter(([, state]) => state === 'done').map(([key]) => key).sort((a, b) => b.localeCompare(a)).slice(0, 14);
-    $('#detailContent').innerHTML = `<div class="card detail-hero"><div><div class="eyebrow">${period.unit === 'month' ? '本月小計畫' : '本週小計畫'}</div><p class="detail-subtitle">${period.start.getFullYear()}年${period.start.getMonth() + 1}月${period.start.getDate()}日 – ${period.end.getMonth() + 1}月${period.end.getDate()}日 · 每期日期可自行調整</p><div class="goal-sub">大目標：${escapeHTML(habit.goal?.name || '尚未設定')} ${habit.goal?.date ? `· 截止 ${escapeHTML(habit.goal.date)}` : ''}</div></div><div class="detail-progress"><b>${stats.pct}%</b><div class="goal-sub">整體目標進度</div></div></div><div class="detail-grid"><section class="card detail-card"><h3>選擇本期執行日期</h3><p class="goal-sub">${period.unit === 'month' ? '點選本月實際會練習的日期。' : '點選本週實際會練習的日期。'}</p><div class="period-picker">${dates.map(date => {const key = dateKey(date), selected = pendingPlanDates.includes(key), completed = app.statusOf(habit, key) === 'done';return `<button class="period-date ${selected ? 'selected' : ''} ${completed ? 'past' : ''}" type="button" data-plan-date="${key}">${date.getMonth() + 1}/${date.getDate()}<small>${weekdayNames[date.getDay()]}${completed ? ' ✓' : ''}</small></button>`;}).join('')}</div><div class="period-plan-footer"><span>建議投入 ${estimate.suggestedHours.toFixed(1)} 小時 · 每次約 ${pendingPlanDates.length ? Math.round(estimate.suggestedHours * 60 / pendingPlanDates.length) : 0} 分鐘</span><button class="primary" id="savePeriodPlan" type="button">儲存本期計畫</button></div></section><section class="card detail-card"><h3>進步追蹤</h3>${habit.goal?.trackHours ? `<div class="goal-card"><div class="goal-card-top"><span class="goal-card-name">累積時數</span><span class="goal-card-percent">${stats.hours.toFixed(1)} / ${Number(habit.goal.targetHours || 0)} 小時</span></div><div class="progress-line"><i style="width:${Math.min(100, stats.hours / Math.max(1, Number(habit.goal.targetHours)) * 100)}%"></i></div><div class="goal-sub">依目標期限平均分配到剩餘 ${estimate.periodsLeft} 期；可調整本期投入。</div></div>` : '<div class="goal-sub">編輯習慣可設定總目標與里程碑。</div>'}<h3 style="margin-top:16px">最近完成紀錄</h3><div class="goal-history">${completionDates.map(key => `<div class="goal-log"><span>${key}</span><span>✓ 完成</span></div>`).join('') || '<div class="goal-sub">完成習慣後會顯示在這裡。</div>'}</div><div class="goal-actions"><button class="tool-btn" id="editDetailHabit" type="button">編輯習慣</button><button class="tool-btn" id="syncDetailGoogle" type="button">同步本期到 Google 日曆</button><button class="tool-btn" id="syncDetailNotion" type="button">備份本期到 Notion</button></div></section></div>`;
+    const goal = habit.goal || {};
+    const suggestedTotal = detailSuggestion?.targetHours ?? goal.estimatedTargetHours ?? null;
+    const totalHours = goal.trackHours ? Number(goal.targetHours || 0) : (Number(suggestedTotal) || null);
+    const remainingHours = totalHours === null ? null : Math.max(0, totalHours - (goal.trackHours ? stats.hours : 0));
+    const historyKeys = [...new Set([...Object.keys(habit.states || {}), ...Object.keys(habit.notes || {}), ...Object.keys(goal.logs || {})])].sort((a, b) => b.localeCompare(a)).slice(0, 14);
+    const statusLabels = { done: '✓ 完成', skip: '↷ 跳過' };
+    const historyRows = historyKeys.map(key => {
+      const state = habit.states?.[key]; const note = habit.notes?.[key] || {}; const log = goal.logs?.[key] || {};
+      return `<div class="goal-log"><span>${escapeHTML(key)} · ${escapeHTML(statusLabels[state] || '小記')}</span><span>${escapeHTML(note.mood || '')}${Number(log.minutes) ? ` ${Number(log.minutes)} 分鐘` : ''} ${escapeHTML(note.text || log.note || '')}</span></div>`;
+    }).join('');
+    const tracking = habit.tracking || {};
+    const resourceRows = (tracking.resources || []).map(value => {
+      let href = '';
+      try { const url = new URL(value); if (['https:', 'http:'].includes(url.protocol)) href = url.href; } catch { /* Keep non-URL resource notes as plain text. */ }
+      return `<li>${href ? `<a href="${escapeHTML(href)}" target="_blank" rel="noopener noreferrer">${escapeHTML(value)}</a>` : escapeHTML(value)}</li>`;
+    }).join('');
+    const trackingRows = (tracking.logs || []).map(log => `<div class="goal-log"><span>${escapeHTML(log.date || '')}</span><span>${escapeHTML(log.text || '')}</span></div>`).join('');
+    const unitName = period.unit === 'month' ? '本月' : '本週';
+    const savedHours = Number(persisted?.targetHours);
+    const planHours = detailSuggestion?.suggestedHours ?? pendingPlanHours ?? (Number.isFinite(savedHours) ? savedHours : estimate.suggestedHours);
+    const planMilestones = detailSuggestion?.milestones?.length ? detailSuggestion.milestones : (persisted?.milestones || []);
+    const milestoneDraft = pendingPlanMilestones ?? planMilestones.join('\n');
+    const selectedDateButtons = dates.map(date => {
+      const key = dateKey(date);
+      const selected = pendingPlanDates.includes(key);
+      const completed = app.statusOf(habit, key) === 'done';
+      return `<button class="period-date" type="button" data-plan-date="${key}" aria-pressed="${selected}" aria-label="${date.getMonth() + 1} 月 ${date.getDate()} 日，週${weekdayNames[date.getDay()]}${selected ? '，已排程' : '，未排程'}"><span>${date.getMonth() + 1}/${date.getDate()}</span><small>週${weekdayNames[date.getDay()]}${completed ? ' · ✓ 已完成' : ''}</small></button>`;
+    }).join('');
+    const plannerHint = detailSuggestion?.explanation || (remainingHours !== null
+      ? `尚需 ${remainingHours.toFixed(1)} 小時，依 ${estimate.periodsLeft} 個${period.unit === 'month' ? '月' : '週'}期平均分配。${goal.date ? ` 目標期限 ${goal.date}。` : ' 未設定期限時先以 12 週／3 個月規劃。'}`
+      : goal.trackMilestones
+        ? '此目標以子目標追蹤。勾選同意後，Gemini 會參考目標名稱與子目標估算總工作時數，再依期限、每週可投入時數與執行頻率安排。'
+        : `依習慣頻率估算每期 ${estimate.suggestedHours.toFixed(1)} 小時。`);
+    const capacityHint = estimate.capacityHours !== null && planHours > estimate.capacityHours
+      ? `目前每期上限為 ${estimate.capacityHours.toFixed(1)} 小時，低於目標進度所需時數；可調整期限或投入上限。`
+      : '你可以編輯本期時數與日期；按「儲存本期計畫」後才會套用。';
+    $('#detailContent').innerHTML = `
+      <section class="card detail-hero goal-overview">
+        <div class="goal-overview-main">
+          <span class="eyebrow">大目標 · ${goal.date ? `期限 ${escapeHTML(goal.date)}` : '尚未設定期限'}</span>
+          <h2 class="goal-overview-title">${escapeHTML(goal.name || habit.name)}</h2>
+          <p class="detail-subtitle">${escapeHTML(habit.icon || '✨')} ${escapeHTML(habit.name)} · ${period.unit === 'month' ? '每月' : '每週'}執行 · ${pendingPlanDates.length} 個本期日期</p>
+          <div class="goal-metrics">
+            <div><small>${goal.trackHours ? '目標時數' : '預估工作量'}</small><b>${goal.trackHours ? `${totalHours.toFixed(1)} 小時` : totalHours !== null ? `AI 預估 ${totalHours.toFixed(1)} 小時` : '待 AI 推算'}</b></div>
+            <div><small>${goal.trackHours ? '已累積' : '目標進度'}</small><b>${goal.trackHours ? `${stats.hours.toFixed(1)} 小時` : `${stats.pct}%`}</b></div>
+            <div><small>尚需投入</small><b>${remainingHours !== null ? `${remainingHours.toFixed(1)} 小時` : '待推算'}</b></div>
+          </div>
+        </div>
+        <div class="detail-progress"><b>${stats.pct}%</b><div class="goal-sub">整體目標進度</div><div class="progress-line"><i style="width:${stats.pct}%"></i></div></div>
+      </section>
+      <div class="detail-grid plan-layout">
+        <section class="card detail-card planner-card">
+          <div class="planner-heading"><div><span class="eyebrow">${unitName}小計畫</span><h3>安排執行日期與時間</h3></div><span class="planner-period">${period.start.getMonth() + 1}/${period.start.getDate()}–${period.end.getMonth() + 1}/${period.end.getDate()}</span></div>
+          <p class="goal-sub">點選要執行的日期；每次時數會依所選日期均分。</p>
+          <div class="period-picker ${period.unit}">${selectedDateButtons || '<div class="empty-state">本期沒有可安排日期。</div>'}</div>
+          <p class="plan-estimate-explanation">${escapeHTML(plannerHint)}</p>
+          <div class="plan-draft">
+            <label for="planHoursDraft">${unitName}建議投入時數</label>
+            <div class="plan-hours-control"><input id="planHoursDraft" type="number" min="0" max="10000" step="0.25" value="${Math.max(0, Number(planHours) || 0).toFixed(1)}"><span>小時</span></div>
+            <p class="goal-sub" id="planSessionMinutes">${pendingPlanDates.length ? `每次約 ${Math.round((Number(planHours) || 0) * 60 / pendingPlanDates.length)} 分鐘` : '請至少選擇一個執行日期'}</p>
+            <p class="plan-capacity-note" id="planCapacityNote">${escapeHTML(capacityHint)}</p>
+          </div>
+          <small class="plan-estimate-source">${escapeHTML(detailSuggestion?.source || '本機免費估算')}</small>
+          <div class="plan-ai-draft">
+            <label class="plan-consent"><input id="planAiConsent" type="checkbox"><span>我同意將目標名稱、子目標、時數、期限與執行頻率傳送給 Gemini；不會傳送筆記。</span></label>
+            <small class="muted">本機免費估算會先顯示。Gemini 只用來建議時數與分段步驟，受現有免費額度限制；無法連線時不影響手動排程。</small>
+            <button class="quiet-btn" id="requestAiPlan" type="button">✦ 產生 AI 計畫草案</button>
+          </div>
+          <div class="plan-draft-result"><h4>分段小計畫（可編輯）</h4><textarea id="planMilestoneDraft" rows="3" maxlength="600" aria-label="分段小計畫，每行一步" placeholder="可先留白，或每行寫下一個步驟。">${escapeHTML(milestoneDraft)}</textarea><small class="muted">AI 草案可以直接修改；每行會作為一個小步驟儲存。</small></div>
+          <div class="planner-footer"><small>資料會自動保存在此瀏覽器；不會同步到其他裝置。</small><button class="primary" id="savePeriodPlan" type="button">確認並儲存本期計畫</button></div>
+        </section>
+        <section class="card detail-card recent-progress-card">
+          <h3>最近紀錄</h3>
+          <div class="goal-history">${historyRows || '<div class="goal-sub">完成打卡或新增過程紀錄後，會顯示在這裡。</div>'}</div>
+          ${goal.trackMilestones ? `<h3 class="milestone-heading">大目標里程碑</h3><div class="milestone-list">${(goal.milestones || []).map(item => `<div class="milestone-item">${item.done ? '✓' : '○'} ${escapeHTML(item.text)}</div>`).join('')}</div>` : ''}
+          <button class="tool-btn" id="editDetailHabit" type="button">編輯目標與頻率</button>
+        </section>
+      </div>
+      <section class="card detail-card goal-notebook"><h3>目標筆記</h3><p class="goal-sub">自由書寫心得、疑問或想法；內容只儲存在目前瀏覽器。</p><textarea id="goalNotebook" rows="7" maxlength="10000" placeholder="從任何一句話開始，不需要整理格式。">${escapeHTML(tracking.goalNotes || '')}</textarea><small class="notebook-save-state" id="goalNotebookSaveState">自動儲存在此瀏覽器</small></section>
+      <div class="detail-grid tracking-sections">
+        <section class="card detail-card tracking-profile"><h3>執行方法</h3><p class="goal-sub">記下你的流程、卡住的地方或調整方式。</p><textarea id="habitMethod" rows="4" maxlength="2000" placeholder="例如：每天先複習單字，再做一頁文法題。">${escapeHTML(tracking.method || '')}</textarea><div class="form-footer"><button class="primary" id="saveHabitProfile" type="button">儲存執行方法</button></div></section>
+        <section class="card detail-card tracking-profile"><h3>參考資源</h3><p class="goal-sub">教材、影片、文章或其他連結，每行一項。</p><textarea id="habitResources" rows="4" maxlength="2000" placeholder="貼上網址或寫下資源名稱
+例如：N3 文法教材第 2 章">${escapeHTML((tracking.resources || []).join('\n'))}</textarea>${resourceRows ? `<ul class="resource-list">${resourceRows}</ul>` : ''}<div class="form-footer"><button class="primary" id="saveHabitResources" type="button">儲存參考資源</button></div></section>
+      </div>
+      <section class="card detail-card tracking-profile"><h3>過程紀錄</h3><p class="goal-sub">每次練習的進度與心得，會依日期保留。</p><div class="field"><label for="habitLogInput">新增一筆紀錄</label><textarea id="habitLogInput" rows="3" maxlength="1000" placeholder="例如：今天完成第一章，文法部分想再複習一次。"></textarea></div><button class="primary" id="addHabitLog" type="button">加入紀錄</button><div class="goal-history">${trackingRows || '<div class="empty-state">尚無過程紀錄。</div>'}</div></section>`;
   }
 
   function attachEvents() {
+    $('#habitForm')?.addEventListener('invalid', event => {
+      const fieldName = event.target.labels?.[0]?.textContent?.trim() || '欄位';
+      app.toast(`請檢查「${fieldName}」的內容後再儲存。`);
+    }, true);
     document.addEventListener('click', event => {
       if (event.target.closest('#openGeminiAssistant')) { $('#geminiAssistantPanel').hidden = false; renderGeminiMessages(); setGeminiStatus(window.RiriGeminiAssistant?.status || '正在載入 Gemini…'); $('#geminiInput')?.focus(); return; }
       if (event.target.closest('#closeGeminiAssistant')) { $('#geminiAssistantPanel').hidden = true; $('#openGeminiAssistant')?.focus(); return; }
@@ -616,39 +718,78 @@
       const habitEvent = event.target.closest('[data-open-habit]');
       if (habitEvent) { openDetail(habitEvent.dataset.openHabit); return; }
       const step = event.target.closest('[data-step]');
-      if (step) { const mode = step.dataset.modeKey; const unit = mode === 'review' ? reviewMode : calendarMode; calendarCursor = unit === 'month' ? new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + Number(step.dataset.step), 15) : addDays(calendarCursor, Number(step.dataset.step) * 7); app.render(); return; }
+      if (step) {
+        const amount = Number(step.dataset.step);
+        if (step.dataset.modeKey === 'review' && reviewMode === 'custom' && reviewRange) {
+          const length = Math.max(1, Math.round((fromKey(reviewRange.end) - fromKey(reviewRange.start)) / 86400000) + 1);
+          const nextEnd = addDays(fromKey(reviewRange.end), amount * length);
+          reviewRange = dateKey(nextEnd) > dateKey(app.today)
+            ? { start: dateKey(addDays(app.today, -length + 1)), end: dateKey(app.today) }
+            : { start: dateKey(addDays(fromKey(reviewRange.start), amount * length)), end: dateKey(nextEnd) };
+        } else {
+          const mode = step.dataset.modeKey;
+          const unit = mode === 'review' ? reviewMode : calendarMode;
+          calendarCursor = unit === 'month' ? new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + amount, 15) : addDays(calendarCursor, amount * 7);
+        }
+        app.render(); return;
+      }
       const modeButton = event.target.closest('[data-mode-key][data-mode]');
-      if (modeButton) { if (modeButton.dataset.modeKey === 'review') reviewMode = modeButton.dataset.mode; else calendarMode = modeButton.dataset.mode; app.render(); return; }
-      if (event.target.closest('[data-today]')) { calendarCursor = new Date(app.today); app.render(); return; }
+      if (modeButton) {
+        if (modeButton.dataset.modeKey === 'review') {
+          reviewMode = modeButton.dataset.mode;
+          if (reviewMode === 'custom' && !reviewRange) reviewRange = { start: dateKey(addDays(app.today, -29)), end: dateKey(app.today) };
+        } else calendarMode = modeButton.dataset.mode;
+        app.render(); return;
+      }
+      if (event.target.closest('[data-today]')) {
+        if (event.target.closest('[data-mode-key="review"]') && reviewMode === 'custom') reviewRange = { start: dateKey(addDays(app.today, -29)), end: dateKey(app.today) };
+        else calendarCursor = new Date(app.today);
+        app.render(); return;
+      }
       const planDate = event.target.closest('[data-plan-date]');
-      if (planDate) { pendingPlanDates = pendingPlanDates.includes(planDate.dataset.planDate) ? pendingPlanDates.filter(key => key !== planDate.dataset.planDate) : [...pendingPlanDates, planDate.dataset.planDate].sort(); renderDetail(); return; }
+      if (planDate) { pendingPlanDates = pendingPlanDates.includes(planDate.dataset.planDate) ? pendingPlanDates.filter(key => key !== planDate.dataset.planDate) : [...pendingPlanDates, planDate.dataset.planDate].sort(); detailSuggestion = null; renderDetail(); return; }
       if (event.target.closest('#savePeriodPlan')) {
         const habit = app.habits.find(item => item.id === detailHabitId); if (!habit) return;
         if (!pendingPlanDates.length) { app.toast('請至少選擇一個執行日期。'); return; }
+        if (habit.goal?.trackMilestones && !habit.goal?.trackHours && !habit.goal?.estimatedTargetHours && !detailSuggestion?.targetHours) { app.toast('先產生 AI 計畫，估算子目標的總工作時數，再儲存排程。'); return; }
         const period = getPeriod(habit.cycleUnit || 'week', app.today);
+        const targetHours = Number($('#planHoursDraft')?.value);
         const estimate = updatePlanEstimate(habit, pendingPlanDates.length);
+        if (!Number.isFinite(targetHours) || targetHours < 0 || (estimate.remaining !== 0 && targetHours === 0)) { app.toast('請輸入大於 0 的本期時數。'); return; }
+        const milestones = ($('#planMilestoneDraft')?.value || pendingPlanMilestones || '').split('\n').map(value => value.trim()).filter(Boolean).slice(0, 12);
+        if (detailSuggestion?.targetHours && habit.goal && !habit.goal.trackHours) habit.goal.estimatedTargetHours = detailSuggestion.targetHours;
         habit.plans ||= {};
-        const targetHours = Number(detailSuggestion?.suggestedHours || estimate.suggestedHours);
-        habit.plans[period.key] = { dates: [...pendingPlanDates], targetHours, plannedMinutes: Math.round(targetHours * 60 / pendingPlanDates.length) };
-        app.save(); app.render(); renderDetail(); app.toast('本期計畫已儲存，之後可滾動調整。'); return;
+        habit.plans[period.key] = { dates: [...pendingPlanDates], targetHours: Math.round(targetHours * 100) / 100, plannedMinutes: Math.round(targetHours * 60 / pendingPlanDates.length), milestones };
+        detailSuggestion = null;
+        pendingPlanHours = null;
+        pendingPlanMilestones = null;
+        app.save(); renderDetail(); app.toast('本期計畫已儲存，之後可滾動調整。'); return;
       }
       if (event.target.closest('#requestAiPlan')) { requestAiPlan(); return; }
       if (event.target.closest('#detailBack')) { showView(detailPreviousView); return; }
       if (event.target.closest('#editDetailHabit')) { const habit = app.habits.find(item => item.id === detailHabitId); if (habit) { showView('today'); app.openHabit(habit.id); setTimeout(() => { $('#cycleUnit').value = habit.cycleUnit || 'week'; $('#periodTargetHours').value = habit.periodTargetHours || ''; }, 0); } return; }
-      if (event.target.closest('#syncDetailGoogle')) { const habit = app.habits.find(item => item.id === detailHabitId); if (habit) syncGooglePeriod(habit); return; }
-      if (event.target.closest('#syncDetailNotion')) { const habit = app.habits.find(item => item.id === detailHabitId); if (habit) syncNotionPeriod(habit); return; }
-      if (event.target.closest('#nextInspiration')) { sessionStorage.setItem('riri-inspiration-offset', String(Number(sessionStorage.getItem('riri-inspiration-offset') || 0) + 1)); renderInspiration(true); return; }
-      if (event.target.closest('#topicSettings')) { showView('settings'); $('#topicSetting')?.focus(); return; }
-      if (event.target.closest('#settingsNotify')) { $('#notifyBtn')?.click(); return; }
-      const connect = event.target.closest('[data-connect]');
-      if (connect) { connectProvider(connect.dataset.connect); return; }
-      if (event.target.closest('#saveBackendUrl')) { preferences.backendUrl = $('#backendUrlSetting').value.trim(); savePreferences(); app.toast('後端 API 網址已儲存。'); refreshIntegrationStatus(); return; }
-      if (event.target.closest('#refreshIntegrations')) { refreshIntegrationStatus(); return; }
-      if (event.target.closest('#saveNotionDatabase')) {
-        const databaseId = $('#notionDatabaseSelect')?.value; if (!databaseId) { app.toast('請選擇一個 Notion 資料庫。'); return; }
-        apiRequest('/integrations/notion/database', { method: 'PUT', body: JSON.stringify({ databaseId }) }).then(response => { if (!response.ok) throw new Error('資料庫欄位不符合，請依設定說明新增欄位。'); app.toast('Notion 資料庫已連結。'); refreshIntegrationStatus(); }).catch(error => app.toast(error.message));
-        return;
+      if (event.target.closest('#saveHabitProfile')) {
+        const habit = app.habits.find(item => item.id === detailHabitId); if (!habit) return;
+        habit.tracking ||= {};
+        habit.tracking.method = $('#habitMethod').value.trim();
+        app.save(); app.toast('執行方法已儲存。'); renderDetail(); return;
       }
+      if (event.target.closest('#saveHabitResources')) {
+        const habit = app.habits.find(item => item.id === detailHabitId); if (!habit) return;
+        habit.tracking ||= {};
+        habit.tracking.resources = $('#habitResources').value.split('\n').map(value => value.trim()).filter(Boolean).slice(0, 30);
+        app.save(); app.toast('參考資源已儲存。'); renderDetail(); return;
+      }
+      if (event.target.closest('#addHabitLog')) {
+        const habit = app.habits.find(item => item.id === detailHabitId); const input = $('#habitLogInput'); const text = input?.value.trim();
+        if (!habit || !text) { app.toast('先寫下一段過程紀錄。'); return; }
+        habit.tracking ||= {}; habit.tracking.logs ||= [];
+        habit.tracking.logs.unshift({ id: `log-${Date.now()}`, date: dateKey(app.today), text });
+        habit.tracking.logs = habit.tracking.logs.slice(0, 100);
+        app.save(); app.toast('過程紀錄已加入。'); renderDetail(); return;
+      }
+      if (event.target.closest('#nextInspiration')) { sessionStorage.setItem('riri-inspiration-offset', String(Number(sessionStorage.getItem('riri-inspiration-offset') || 0) + 1)); renderInspiration(true); return; }
+      if (event.target.closest('#settingsNotify')) { $('#notifyBtn')?.click(); return; }
     }, true);
 
     document.addEventListener('keydown', event => {
@@ -668,10 +809,53 @@
 
     document.addEventListener('change', event => {
       if (event.target.id === 'themeSetting') { preferences.theme = event.target.value; savePreferences(); applyTheme(); }
-      if (event.target.id === 'topicSetting') { preferences.topic = event.target.value; savePreferences(); renderInspiration(); }
+      if (event.target.matches('[data-interest-topic]')) {
+        const selected = $$('[data-interest-topic]:checked').map(input => input.dataset.interestTopic);
+        if (!selected.length) { event.target.checked = true; app.toast('請至少保留一個靈感主題。'); return; }
+        preferences.topics = selected; savePreferences(); sessionStorage.setItem('riri-inspiration-offset', '0');
+        const count = $('#interestSelectionCount');
+        if (count) count.textContent = `目前選取 ${selected.length} 個主題，至少保留一個。`;
+        renderInspiration(true);
+      }
+      if (event.target.id === 'reviewStart' || event.target.id === 'reviewEnd') {
+        const start = $('#reviewStart')?.value; const end = $('#reviewEnd')?.value;
+        if (start && end) {
+          reviewRange = start <= end ? { start, end } : event.target.id === 'reviewStart' ? { start, end: start } : { start: end, end };
+          reviewMode = 'custom'; app.render();
+        }
+      }
       if (event.target.id === 'displayNameSetting') { preferences.displayName = event.target.value.trim() || '朋友'; savePreferences(); renderToday(); }
       if (event.target.id === 'geminiConsent') setGeminiStatus(window.RiriGeminiAssistant?.status || '正在載入 Gemini…');
       if (event.target.id === 'geminiShareContext') { /* The context is collected only when the user sends a message. */ }
+    });
+
+    document.addEventListener('input', event => {
+      if (event.target.id === 'planHoursDraft') {
+        const hours = Math.max(0, Number(event.target.value) || 0);
+        pendingPlanHours = hours;
+        const sessions = pendingPlanDates?.length || 0;
+        const label = $('#planSessionMinutes');
+        if (label) label.textContent = sessions ? `每次約 ${Math.round(hours * 60 / sessions)} 分鐘` : '請至少選擇一個執行日期';
+        const habit = app.habits.find(item => item.id === detailHabitId);
+        const capacity = Number(habit?.periodTargetHours) || 0;
+        const note = $('#planCapacityNote');
+        if (note) note.textContent = capacity > 0 && hours > capacity
+          ? `目前每期上限為 ${capacity.toFixed(1)} 小時，低於草案時數；可調整上限或期限。`
+          : '你可以編輯本期時數與日期；按「確認並儲存」後才會套用。';
+        return;
+      }
+      if (event.target.id === 'planMilestoneDraft') {
+        pendingPlanMilestones = event.target.value;
+        return;
+      }
+      if (event.target.id !== 'goalNotebook') return;
+      const habit = app.habits.find(item => item.id === detailHabitId);
+      if (!habit) return;
+      habit.tracking ||= {};
+      habit.tracking.goalNotes = event.target.value;
+      app.save();
+      const state = $('#goalNotebookSaveState');
+      if (state) state.textContent = '已自動儲存在此瀏覽器';
     });
 
     document.addEventListener('click', event => {
@@ -703,29 +887,6 @@
 
   }
 
-  function onHabitStateChange(habit, state, key) {
-    if (!backendBase()) return;
-    const status = state === 'done' ? '已完成' : state === 'skip' ? '跳過' : '待開始';
-    apiRequest('/integrations/notion/occurrences', {
-      method: 'POST', body: JSON.stringify({
-        syncKey: `${habit.id}:${key}`, habitName: habit.name, frequency: habit.cycleUnit === 'month' ? '每月' : '每週',
-        expectedHours: Number(habit.duration || 30) / 60, status, executionDate: key
-      })
-    }).catch(() => {});
-    if (state === 'done') {
-      const start = fromKey(key);
-      const [hours, minutes] = String(habit.time || '20:00').split(':').map(Number);
-      start.setHours(hours, minutes, 0, 0);
-      const end = new Date(start.getTime() + Number(habit.duration || 30) * 60_000);
-      apiRequest('/integrations/google/occurrences/complete', {
-        method: 'POST', body: JSON.stringify({
-          habitId: habit.id, cycleUnit: habit.cycleUnit || 'week', occurrenceDate: key,
-          occurrenceStart: start.toISOString(), occurrenceEnd: end.toISOString()
-        })
-      }).catch(() => {});
-    }
-  }
-
   function initialize() {
     if (initialized || !window.RiriApp) return;
     initialized = true;
@@ -734,15 +895,12 @@
     if (formIconFields.length > 1) formIconFields[1].closest('.field')?.remove();
     applyTheme();
     attachEvents();
+    $('#topicSettings')?.addEventListener('click', openInspirationSettings);
+    $('#sidebarTopicSettings')?.addEventListener('click', openInspirationSettings);
     setGeminiStatus(window.RiriGeminiAssistant?.status || '正在載入 Gemini…');
     if ($('#themeSetting')) $('#themeSetting').value = preferences.theme || 'system';
-    const integrationNotice = new URLSearchParams(location.search).get('integration');
     app.render();
-    if (integrationNotice === 'google-connected' || integrationNotice === 'notion-connected') {
-      app.toast(integrationNotice === 'google-connected' ? 'Google 日曆已連結。' : 'Notion 已連結，請選擇目標資料庫。');
-      history.replaceState({}, '', location.pathname);
-    }
   }
 
-  window.RiriEnhancements = { initialize, renderToday, renderAlternate, onHabitStateChange, setGeminiStatus };
+  window.RiriEnhancements = { initialize, renderToday, renderAlternate, setGeminiStatus };
 })();

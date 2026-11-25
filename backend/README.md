@@ -6,10 +6,27 @@ API CORS 僅允許 `.env` 的 `APP_ORIGIN`（只填 origin，不含 `/1106/` 路
 
 ## 開發啟動
 
-1. 複製 `.env.example` 為 `.env` 並填入本機設定。
+1. 複製 `.env.example` 為 `.env` 並填入本機設定；`.env` 已排除在 Git 之外。
 2. 建立 PostgreSQL、Redis，設定 Firebase Admin Application Default Credentials。
 3. 安裝依賴後執行 `npm run db:generate`、`npm run db:migrate`、`npm run dev`。
 4. 在 Google Cloud OAuth 用戶端及 Notion integration 登記 `.env` 中完全相同的 redirect URI。
+
+## App 裡的 API 網址要填什麼
+
+此專案目前只有後端原始碼，尚未部署成公開服務，所以目前沒有可填的 API 網址。App 設定頁的網址欄位要填「已部署後端服務的根網址」，例如 `https://riri-api-xxxxx-uc.a.run.app`；不要填 Google Calendar、Notion 網址，也不要把 `/health` 加在最後。
+
+目前連結的 Firebase 專案尚未啟用 Cloud Run、Cloud SQL、Memorystore Redis 或 Secret Manager，Firebase 專案也沒有綁定計費帳戶；Google Calendar 和 Notion 的後端 OAuth 用戶端憑證亦未設定。因此不能直接產生可用的服務網址。Cloud Run/資料庫/佇列部署需先確認計費方案與月費預算，再建立必要的雲端資源和 OAuth 憑證。
+
+取得網址前，必須先備妥 PostgreSQL、Redis、Firebase Admin 身分、Google OAuth 用戶端、Notion OAuth integration，以及部署環境中的密鑰。部署服務後，瀏覽 `https://你的服務網址/health` 應回傳 `{"ok":true}`。接著把服務根網址貼回 App，按「測試網址」並看到「API 正常」，再按儲存。
+
+後端要使用：
+
+- `APP_ORIGIN=https://yingchen921102-max.github.io`（僅 origin，不含 `/1106/`）
+- `APP_BASE_URL=https://yingchen921102-max.github.io/1106`（含 App 子路徑）
+- Google OAuth redirect URI：`https://你的服務網址/integrations/google/callback`
+- Notion OAuth redirect URI：`https://你的服務網址/integrations/notion/callback`
+
+OAuth client secret、Firebase Admin 憑證、資料庫密碼和 `TOKEN_ENCRYPTION_KEY_BASE64` 都要放在部署平台的 Secret Manager，不能貼進 App 網頁或提交到 GitHub。這份原型後端的 token 加密僅供開發示範；正式服務需先採用雲端 KMS 與受管理的資料庫／佇列。
 
 ## OAuth 與 API
 
